@@ -257,18 +257,30 @@ class TFWorkerManager {
 // Singleton instance
 export const tfWorker = new TFWorkerManager();
 
-// Map model architecture to worker model types
+// Map decoder model types to worker model types (P300 classifiers)
 export function getWorkerModelType(architecture?: string): string | null {
   switch (architecture) {
+    // P300 binary classifiers
+    case 'p300-classifier':
+      return 'p300-classifier';
+    case 'erp-mlp':
+      return 'erp-mlp';
+    case 'erp-cnn':
+      return 'erp-cnn';
+    case 'erp-lstm':
+      return 'erp-lstm';
+    case 'erp-attention':
+      return 'erp-attention';
+    // Legacy aliases (map old names to closest P300 equivalent)
     case 'linear':
-      return 'linear';
+      return 'p300-classifier';
     case 'mlp':
-      return 'mlp';
+      return 'erp-mlp';
     case 'lstm':
-      return 'lstm';
+      return 'erp-lstm';
     case 'bigru':
     case 'attention':
-      return 'attention';
+      return 'erp-attention';
     default:
       return null;
   }

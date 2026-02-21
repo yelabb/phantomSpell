@@ -5,7 +5,7 @@ import type { FlashEvent } from '../components/visualization/SpellerGrid';
 
 export type DecoderType = 'javascript' | 'tfjs' | 'wasm';
 
-export type TFJSModelType = 'linear' | 'mlp' | 'lstm' | 'attention' | 'kalman-neural' | 'p300-classifier' | 'erp-cnn';
+export type TFJSModelType = 'p300-classifier' | 'erp-mlp' | 'erp-cnn' | 'erp-lstm' | 'erp-attention' | 'linear' | 'mlp' | 'lstm' | 'attention' | 'kalman-neural';
 
 // Decoder task type
 export type DecoderTask = 'motor-decoding' | 'p300-speller' | 'ssvep' | 'motor-imagery';

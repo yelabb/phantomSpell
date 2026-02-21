@@ -153,7 +153,7 @@ export function getDecodersBySource(sourceType: DecoderSource['type']): Decoder[
 export async function initModel(decoder: Decoder | TFJSModelType): Promise<void> {
   // Legacy support: if just a model type string is passed
   if (typeof decoder === 'string') {
-    const workerType = getWorkerModelType(decoder === 'kalman-neural' ? 'mlp' : decoder);
+    const workerType = getWorkerModelType(decoder);
     if (workerType) {
       await tfWorker.createModel(workerType);
     }
@@ -166,7 +166,7 @@ export async function initModel(decoder: Decoder | TFJSModelType): Promise<void>
   if (!source) {
     // Legacy: use tfjsModelType if no source specified
     if (decoder.tfjsModelType) {
-      const workerType = getWorkerModelType(decoder.tfjsModelType === 'kalman-neural' ? 'mlp' : decoder.tfjsModelType);
+      const workerType = getWorkerModelType(decoder.tfjsModelType);
       if (workerType) {
         await tfWorker.createModel(workerType);
       }
@@ -179,7 +179,7 @@ export async function initModel(decoder: Decoder | TFJSModelType): Promise<void>
 
   switch (source.type) {
     case 'builtin': {
-      const workerType = getWorkerModelType(source.modelType === 'kalman-neural' ? 'mlp' : source.modelType);
+      const workerType = getWorkerModelType(source.modelType);
       if (workerType) {
         await tfWorker.createModel(workerType);
       }
@@ -212,7 +212,7 @@ export async function initModel(decoder: Decoder | TFJSModelType): Promise<void>
  */
 export function isModelLoaded(decoder: Decoder | TFJSModelType): boolean {
   if (typeof decoder === 'string') {
-    const workerType = getWorkerModelType(decoder === 'kalman-neural' ? 'mlp' : decoder);
+    const workerType = getWorkerModelType(decoder);
     return workerType ? tfWorker.isModelLoaded(workerType) : false;
   }
   
@@ -229,7 +229,7 @@ export function isModelLoaded(decoder: Decoder | TFJSModelType): boolean {
   
   // Legacy check
   if (decoder.tfjsModelType) {
-    const workerType = getWorkerModelType(decoder.tfjsModelType === 'kalman-neural' ? 'mlp' : decoder.tfjsModelType);
+    const workerType = getWorkerModelType(decoder.tfjsModelType);
     return workerType ? tfWorker.isModelLoaded(workerType) : false;
   }
   
