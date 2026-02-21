@@ -78,9 +78,9 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onConnectToESPEEG }: 
   }, [streamConnectionState, onConnectToESPEEG]);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black">
+    <div className="min-h-screen w-full z-[100] flex flex-col items-center justify-start bg-black py-8">
       {/* Animated background gradient */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -inset-[100px] opacity-30">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-phantom/40 rounded-full blur-[128px] animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-loopback/40 rounded-full blur-[128px] animate-pulse delay-1000" />
@@ -90,7 +90,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onConnectToESPEEG }: 
 
       {/* Grid pattern overlay */}
       <div 
-        className="absolute inset-0 opacity-10"
+        className="fixed inset-0 opacity-10 pointer-events-none"
         style={{
           backgroundImage: `
             linear-gradient(rgba(255, 200, 50, 0.1) 1px, transparent 1px),
@@ -101,7 +101,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onConnectToESPEEG }: 
       />
 
       {/* Main content */}
-      <div className="relative z-10 flex flex-col items-center gap-8 p-8 max-w-lg mx-4">
+      <div className="relative z-10 flex flex-col items-center gap-8 p-8 max-w-lg w-full mx-auto">
         {/* Logo and title */}
         <div className="text-center animate-fade-in">
           <div className="flex justify-center mb-4">

@@ -71,7 +71,7 @@ function App() {
   }, [espConnectionStatus, currentScreen, dataSource?.type, isModalBlocking]);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-black relative">
+    <div className={`w-screen h-screen bg-black relative ${currentScreen === 'welcome' ? 'overflow-y-auto' : 'overflow-hidden'}`}>
       {/* Welcome screen */}
       {currentScreen === 'welcome' && (
         <WelcomeScreen 
