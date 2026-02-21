@@ -47,7 +47,6 @@ PhantomSpell supports **any multichannel EEG device** through a unified adapter 
 
 | Manufacturer | Device | Channels | Sample Rate | Protocol |
 |--------------|--------|----------|-------------|----------|
-| **PhantomLink** | MC_Maze Dataset | 142 | 40 Hz | WebSocket (MessagePack) |
 | **OpenBCI** | Cyton | 8 | 250 Hz | Serial/WiFi |
 | **OpenBCI** | Cyton + Daisy | 16 | 125 Hz | Serial/WiFi |
 | **OpenBCI** | Ganglion | 4 | 200 Hz | BLE |
@@ -361,15 +360,15 @@ python scripts/cerelog_ws_bridge.py --esp-ip 192.168.4.1 --esp-port 1112
 
 ---
 
-## �🏗 Architecture
+## 🏗 Architecture
 
-PhantomLoop is a single-page React application with modular state management:
+PhantomSpell is a single-page React application with modular state management:
 
 ### System Overview
 ```
 ┌─────────────────────────┐     ┌─────────────────────────┐
 │      Simulations        │     │      EEG Devices        │
-│    (---ch @ --Hz)       │     │     (1-16ch @ 250Hz)    │
+│    (8-64ch @ 250Hz+)    │     │     (4-64ch @ 250Hz+)   │
 └───────────┬─────────────┘     └───────────┬─────────────┘
             │                               │
             └───────────────┬───────────────┘
@@ -387,65 +386,71 @@ PhantomLoop is a single-page React application with modular state management:
           ┌──────────────────────┼──────────────────────┐
           │                      │                      │
 ┌─────────▼─────────┐  ┌─────────▼─────────┐  ┌─────────▼─────────┐
-│  Dynamic Decoders │  │  Visualizations   │  │  Metrics Engine   │
-│  (JS / TFJS)      │  │  (15+ components) │  │  (accuracy, FPS)  │
+│  P300 Classifiers │  │  Speller Grid     │  │  Metrics Engine   │
+│  (TFJS / Custom)  │  │  (6×6 matrix)     │  │  (ITR, accuracy)  │
 └───────────────────┘  └───────────────────┘  └───────────────────┘
 ```
 
 ### Core Components
-1. **Stream Adapters** - Unified interface for any multichannel data source
-2. **WebSocket Client** - Binary MessagePack protocol (40Hz streaming)
-3. **State Management** - Zustand with 5 specialized slices
-4. **Decoder Engine** - Supports JavaScript and TensorFlow.js models (dynamic input shapes)
-5. **Visualization Suite** - 2D arena, neural activity, performance metrics
+1. **Stream Adapters** - Unified interface for any multichannel EEG device
+2. **WebSocket Client** - Binary MessagePack protocol for real-time streaming
+3. **State Management** - Zustand with 5 specialized slices (connection, stream, decoder, metrics, training)
+4. **P300 Classifier Engine** - TensorFlow.js models with dynamic channel support
+5. **Speller Grid** - 6×6 character matrix with row/column flashing paradigm
+6. **Calibration System** - Copy-spelling task with labeled data collection
 
 ### State Slices (Zustand)
 - **connectionSlice**: WebSocket lifecycle, session management
-- **streamSlice**: Packet buffering with throttled updates (20Hz UI refresh)
-- **decoderSlice**: Decoder registry, execution, loading states
-- **metricsSlice**: Accuracy tracking, latency monitoring, error statistics
-- **unifiedStreamSlice**: Stream source selection, adapter state, N-channel buffer
+- **streamSlice**: EEG packet buffering with epoching for flash events
+- **decoderSlice**: P300 classifier registry, execution, loading states
+- **metricsSlice**: ITR tracking, accuracy monitoring, character selection stats
+- **trainingSlice**: Calibration data collection and model training workflow
 
-### Decoder Execution
-- **JavaScript**: Direct execution in main thread (<1ms)
-- **TensorFlow.js**: Web Worker execution (5-10ms)
-- **Dynamic Models**: Input shape adapts to stream channel count
-- **Timeout protection**: 10ms limit per inference
-- **Error handling**: Falls back to passthrough on failure
+### P300 Classification Pipeline
+1. **Flash Event** → Row/column illuminates for 125ms
+2. **Epoch Extraction** → Capture 0-800ms post-flash EEG from all channels
+3. **Preprocessing** → Bandpass filter (0.5-30 Hz), baseline correction
+4. **Classification** → TensorFlow.js model predicts target vs. non-target
+5. **Aggregation** → Accumulate scores across multiple flash cycles
+6. **Character Selection** → Intersect highest-scoring row and column
 
 ---
 
-## 🧠 Built-in Decoders
+## 🧠 P300 Classification Models
 
-### JavaScript Baselines
-| Decoder | Description |
-|---------|-------------|
-| **Passthrough** | Perfect tracking baseline (copies ground truth) |
-| **Delayed** | 100ms lag test for desync detection |
-| **Velocity Predictor** | Linear prediction using velocity |
-| **Spike-Based Simple** | Naive spike-rate modulated decoder |
+PhantomSpell uses machine learning to detect P300 event-related potentials (ERPs) in EEG signals and classify which row/column the user is attending to.
 
-### TensorFlow.js Models
-| Model | Architecture | Parameters |
-|-------|--------------|------------|
-| **Linear (OLE)** | Optimal Linear Estimator (N→2) | ~290 |
-| **MLP** | Multi-layer perceptron (N→128→64→2) | ~27K |
-| **LSTM** | Temporal decoder with 10-step history | ~110K |
-| **BiGRU Attention** | Bidirectional GRU with max pooling | ~85K |
-| **Kalman-Neural Hybrid** | MLP + Kalman fusion (α=0.6) | ~27K |
+### TensorFlow.js Classifiers
 
-> All TensorFlow.js models support **dynamic input shapes** – they auto-adapt to the stream's channel count!
+| Model | Architecture | Description |
+|-------|--------------|-------------|
+| **Linear Classifier** | Dense(N×600 → 2) | Simple logistic regression on epoched EEG. Fast baseline. |
+| **CNN-ERP** | Conv1D(3 layers) → Dense → Sigmoid | Convolutional classifier for temporal ERP patterns. |
+| **LSTM-P300** | LSTM(64) → Dense(32) → Dense(2) | Recurrent model captures P300 waveform dynamics. |
+| **EEGNet** | Depthwise Conv2D → Separable Conv2D | Compact architecture designed for ERP classification. |
+| **Attention-ERP** | Multi-head Attention → Dense | Learns channel importance and temporal features. |
+
+**Input:** Epoched EEG data (typically 0-800ms post-flash, all channels)  
+**Output:** Binary classification (target vs. non-target) with confidence score
+
+### Training & Calibration
+
+1. **Copy-Spelling Task** – User focuses on displayed characters while system collects labeled EEG data
+2. **Data Augmentation** – Synthetic noise injection and temporal jittering to improve robustness
+3. **Online Learning** – Models can update incrementally during use to adapt to signal drift
+
+> All models support **dynamic channel counts** and auto-adapt to your EEG device (4-64 channels).
 
 ---
 
 ## 📝 Code Editor
 
-Write custom decoders with a **VS Code-quality editing experience**:
+Write custom P300 classifiers with a **VS Code-quality editing experience**:
 
 - **Monaco Editor** with full IntelliSense
 - **TensorFlow.js autocomplete** for `tf.layers`, `tf.sequential()`, etc.
-- **AI-powered code generation** via Groq (natural language → code)
-- **Quick templates** for MLP, LSTM, CNN, Attention architectures
+- **AI-powered code generation** via Groq (natural language → P300 model code)
+- **Quick templates** for CNN-ERP, LSTM, Attention, and other ERP classification architectures
 - **Real-time validation** with syntax checking and best practices
 
 See [docs/CODE_EDITOR.md](docs/CODE_EDITOR.md) for full documentation.
@@ -496,14 +501,16 @@ npx wrangler pages deploy dist
 
 | Metric | Target | Notes |
 |--------|--------|-------|
-| **Data Rate** | 40 Hz | From PhantomLink backend |
-| **UI Refresh** | 60 FPS | Throttled to 20Hz for React |
-| **Total Latency** | <50ms | Network + Decoder + Render |
-| **Decoder Timeout** | 10ms | Auto-fallback on timeout |
+| **EEG Sample Rate** | 250+ Hz | Minimum for P300 detection |
+| **Flash Rate** | 125ms flash + 75ms ISI | Standard P300 timing |
+| **Classification Latency** | <100ms | TensorFlow.js inference time |
+| **ITR (Bits/Min)** | 15-40 | Information Transfer Rate depends on accuracy |
+| **Selection Time** | 10-15s | Per character (including multiple trial cycles) |
 
-- **Desync detection** when latency exceeds threshold
-- **Web Worker decoders** for non-blocking computation
-- **Draggable/resizable panels** with localStorage persistence
+- **Event-locked epoching** for precise stimulus alignment
+- **Web Worker classification** for non-blocking computation
+- **Adaptive trial count** based on classification confidence
+- **Real-time signal quality monitoring** with electrode impedance feedback
 
 ---
 
@@ -514,7 +521,8 @@ npx wrangler pages deploy dist
 Create `.env.local`:
 
 ```bash
-VITE_PHANTOMLINK_URL=wss://phantomlink.fly.dev
+VITE_WEBSOCKET_URL=ws://localhost:8766  # Default WebSocket bridge URL
+VITE_GROQ_API_KEY=your_groq_api_key     # Optional: for AI code generation
 ```
 
 ### Constants
@@ -522,19 +530,27 @@ VITE_PHANTOMLINK_URL=wss://phantomlink.fly.dev
 Edit [src/utils/constants.ts](src/utils/constants.ts):
 
 ```typescript
-// Color scheme
-export const COLORS = {
-  BIOLINK: '#00FF00',    // Green - Ground Truth
-  LOOPBACK: '#0080FF',   // Blue - Decoder Output
-  TARGET: '#FF00FF',     // Magenta - Active Target
+// P300 Speller Timing
+export const P300_TIMING = {
+  FLASH_DURATION_MS: 125,
+  INTER_FLASH_INTERVAL_MS: 75,
+  TRIAL_COUNT: 10,
+  POST_SELECTION_PAUSE_MS: 1500,
 };
 
-// Performance monitoring
+// Color scheme
+export const COLORS = {
+  FLASH_ACTIVE: '#FFFF00',    // Yellow - Active flash
+  FLASH_TARGET: '#00FF00',    // Green - Target (calibration)
+  SELECTED_CHAR: '#00AAFF',   // Blue - Selected character
+  GRID_DEFAULT: '#333333',    // Dark gray - Grid background
+};
+
+// Performance thresholds
 export const PERFORMANCE_THRESHOLDS = {
-  TARGET_FPS: 60,
-  MAX_TOTAL_LATENCY_MS: 50,
-  DESYNC_THRESHOLD_MS: 50,
-  DECODER_TIMEOUT_MS: 10,
+  MIN_CLASSIFICATION_CONFIDENCE: 0.6,
+  MIN_ITR_BITS_PER_MIN: 10,
+  MAX_CLASSIFICATION_LATENCY_MS: 100,
 };
 ```
 

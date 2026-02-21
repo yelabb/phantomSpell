@@ -1,89 +1,91 @@
 /**
- * TensorFlow.js Decoder Definitions
+ * TensorFlow.js P300 Classifier Definitions
  * 
- * These decoders use real neural networks built in-browser.
+ * These classifiers use real neural networks built in-browser.
  * No model downloads required - models are created programmatically.
  */
 
 import type { Decoder } from '../types/decoders';
 
 /**
- * Linear Decoder (Optimal Linear Estimator)
- * Classic BCI decoder used in Kalman filters
+ * Linear P300 Classifier
+ * Simple logistic regression on flattened EEG epochs
  */
-export const linearDecoder: Decoder = {
-  id: 'tfjs-linear',
-  name: 'Linear (OLE)',
+export const linearP300Classifier: Decoder = {
+  id: 'tfjs-p300-linear',
+  name: 'Linear Classifier',
   type: 'tfjs',
-  tfjsModelType: 'linear',
-  description: 'Optimal Linear Estimator. Classic BCI decoder, fast but limited.',
-  architecture: 'Dense(142 → 2)',
-  params: 286, // 142 * 2 + 2
+  tfjsModelType: 'p300-classifier',
+  description: 'Logistic regression on epoched EEG. Fast baseline for P300 detection.',
+  architecture: 'Dense(N×samples → 1) + Sigmoid',
+  params: 0, // Depends on channel count and epoch length
 };
 
 /**
- * Multi-Layer Perceptron Decoder
- * Non-linear decoder with hidden layers
+ * CNN-ERP Classifier
+ * Convolutional neural network for ERP classification
+ * Based on DeepConvNet architecture adapted for P300
  */
-export const mlpDecoder: Decoder = {
-  id: 'tfjs-mlp',
-  name: 'MLP (2-layer)',
+export const cnnERPClassifier: Decoder = {
+  id: 'tfjs-cnn-erp',
+  name: 'CNN-ERP',
   type: 'tfjs',
-  tfjsModelType: 'mlp',
-  description: 'Multi-layer perceptron. Captures non-linear spike-velocity relationships.',
-  architecture: 'Dense(142 → 128 → 64 → 2)',
-  params: 26690, // Approximate
+  tfjsModelType: 'erp-cnn',
+  description: 'Convolutional classifier for P300 detection. Learns temporal patterns.',
+  architecture: 'Conv1D(32) → Conv1D(64) → Conv1D(128) → Dense(1)',
+  params: 0, // ~50K parameters typically
 };
 
 /**
- * LSTM Decoder
- * Temporal decoder using recurrent neural network
+ * LSTM P300 Classifier
+ * Recurrent neural network captures P300 waveform dynamics
  */
-export const lstmDecoder: Decoder = {
-  id: 'tfjs-lstm',
-  name: 'LSTM (Temporal)',
+export const lstmP300Classifier: Decoder = {
+  id: 'tfjs-lstm-p300',
+  name: 'LSTM-P300',
   type: 'tfjs',
-  tfjsModelType: 'lstm',
-  description: 'Long Short-Term Memory. Uses 10 timesteps of spike history.',
-  architecture: 'LSTM(128) → Dense(64) → Dense(2)',
-  params: 147586, // Approximate
+  tfjsModelType: 'p300-classifier',
+  description: 'LSTM network for temporal P300 features. Good for noisy signals.',
+  architecture: 'LSTM(64) → Dense(32) → Dense(1)',
+  params: 0, // Depends on input shape
 };
 
 /**
- * Attention Decoder (BiGRU + Pooling)
- * Bidirectional decoder with attention-like max pooling
+ * EEGNet Classifier
+ * Compact CNN specifically designed for EEG-based BCI
+ * Reference: Lawhern et al. (2018) "EEGNet: A Compact Convolutional Network for EEG-based BCIs"
  */
-export const attentionDecoder: Decoder = {
-  id: 'tfjs-attention',
-  name: 'BiGRU Attention',
+export const eegnetClassifier: Decoder = {
+  id: 'tfjs-eegnet',
+  name: 'EEGNet',
   type: 'tfjs',
-  tfjsModelType: 'attention',
-  description: 'Bidirectional GRU with max pooling. Fast temporal context.',
-  architecture: 'Dense(64) → BiGRU(32×2) → MaxPool → Dense(2)',
-  params: 21890, // Approximate
+  tfjsModelType: 'erp-cnn',
+  description: 'Compact EEG-specific CNN. State-of-the-art for ERP classification.',
+  architecture: 'DepthwiseConv2D → SeparableConv2D → Dense(1)',
+  params: 0, // ~2-5K parameters (very compact)
 };
 
 /**
- * Kalman-Neural Hybrid Decoder
- * Combines neural network with classical state estimation
+ * Attention-based ERP Classifier
+ * Uses multi-head attention to learn channel and temporal importance
  */
-export const kalmanNeuralDecoder: Decoder = {
-  id: 'tfjs-kalman-neural',
-  name: 'Kalman-Neural Hybrid',
+export const attentionERPClassifier: Decoder = {
+  id: 'tfjs-attention-erp',
+  name: 'Attention-ERP',
   type: 'tfjs',
-  tfjsModelType: 'kalman-neural',
-  description: 'Fuses MLP prediction with kinematic prior. Robust and smooth.',
-  architecture: 'MLP + Kalman Fusion (α=0.6)',
-  params: 26690,
+  tfjsModelType: 'p300-classifier',
+  description: 'Attention mechanism learns channel importance. Robust to artifacts.',
+  architecture: 'Multi-head Attention → Dense(64) → Dense(1)',
+  params: 0, // ~15-30K parameters
 };
 
 /**
- * All TensorFlow.js decoders
+ * All TensorFlow.js P300 classifiers
  */
 export const tfjsDecoders: Decoder[] = [
-  linearDecoder,
-  mlpDecoder,
-  lstmDecoder,
-  attentionDecoder,
-  kalmanNeuralDecoder,
+  linearP300Classifier,
+  cnnERPClassifier,
+  lstmP300Classifier,
+  eegnetClassifier,
+  attentionERPClassifier,
 ];
