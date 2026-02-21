@@ -8,7 +8,7 @@
 
 **P300-Based BCI Speller Interface**
 
-[![PhantomLink Core](https://img.shields.io/badge/Powered_by-PhantomLink_Core-009688.svg)](https://github.com/yelabb/PhantomLink)
+[![GitHub](https://img.shields.io/badge/GitHub-yelabb/phantomSpell-181717.svg?logo=github)](https://github.com/yelabb/phantomSpell)
 [![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![TensorFlow.js](https://img.shields.io/badge/TensorFlow.js-4.22-orange.svg)](https://www.tensorflow.org/js)
@@ -39,13 +39,13 @@
 
 ## 📡 Universal EEG Device Support
 
-PhantomLoop supports **any multichannel time-series source** through a unified adapter pattern.
+PhantomSpell supports **any multichannel EEG device** through a unified adapter pattern.
 
 ### Supported Devices
 
 | Manufacturer | Device | Channels | Sample Rate | Protocol |
 |--------------|--------|----------|-------------|----------|
-| **PhantomLink** | MC_Maze Dataset | 142 | 40 Hz | WebSocket (MessagePack) |
+| **PiEEG** | PiEEG 8-ch | 8 | 250 Hz | WebSocket |
 | **OpenBCI** | Cyton | 8 | 250 Hz | Serial/WiFi |
 | **OpenBCI** | Cyton + Daisy | 16 | 125 Hz | Serial/WiFi |
 | **OpenBCI** | Ganglion | 4 | 200 Hz | BLE |

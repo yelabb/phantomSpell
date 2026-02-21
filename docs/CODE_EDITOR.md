@@ -1,6 +1,6 @@
 # 🚀 World-Class Code Editor
 
-The PhantomLoop code editor is powered by **Monaco Editor** (the same engine as VS Code) with AI-powered code generation via **Groq**.
+The PhantomSpell code editor is powered by **Monaco Editor** (the same engine as VS Code) with AI-powered code generation via **Groq**.
 
 ## ✨ Features
 
@@ -268,7 +268,7 @@ options={{
 - [Monaco Editor Docs](https://microsoft.github.io/monaco-editor/)
 - [TensorFlow.js Docs](https://js.tensorflow.org/)
 - [Groq API Docs](https://console.groq.com/docs)
-- [PhantomLoop README](../README.md)
+- [PhantomSpell README](../README.md)
 
 ## 💬 Support
 

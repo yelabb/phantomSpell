@@ -1,6 +1,6 @@
 # Universal EEG Device Integration
 
-This branch adds **universal EEG hardware support** to PhantomLoop, including electrode placement and signal quality monitoring for multiple EEG devices, with Brainflow integration.
+This document describes **universal EEG hardware support** in PhantomSpell, including electrode placement and signal quality monitoring for multiple EEG devices, with Brainflow integration.
 
 ## 🎯 Supported Devices
 
@@ -34,7 +34,7 @@ EEG Device (TCP/Serial/BLE)
     ↓
 WebSocket Bridge (Python/Node.js)
     ↓ (ws://localhost:876x)
-PhantomLoop (Browser)
+PhantomSpell (Browser)
 ```
 
 ## What's New
@@ -114,7 +114,7 @@ cd scripts
 pip install websockets
 python cerelog_ws_bridge.py
 
-# Connect in PhantomLoop to ws://localhost:8765
+# Connect in PhantomSpell to ws://localhost:8765
 ```
 
 ### 3. Access Electrode Placement
@@ -328,4 +328,4 @@ A: Use 'brainflow-generic' device type and configure manually, or add a new prof
 
 ## License
 
-Same as PhantomLoop main project.
+Same as PhantomSpell main project.

@@ -6,7 +6,7 @@
  * 
  * For production, models can be:
  * 1. Created here with random/pretrained weights
- * 2. Loaded from a remote URL (CDN, PhantomLink backend)
+ * 2. Loaded from a remote URL (CDN, cloud storage)
  * 3. Fine-tuned in the browser with user data
  */
 
@@ -219,7 +219,7 @@ export async function createAttentionDecoder(): Promise<tf.LayersModel> {
 
 /**
  * Load a pre-trained model from a remote URL
- * Supports PhantomLink backend, CDN, or any CORS-enabled endpoint
+ * Supports CDN or any CORS-enabled endpoint
  */
 export async function loadRemoteModel(url: string, cacheKey: string): Promise<tf.LayersModel> {
   if (modelCache.has(cacheKey)) {

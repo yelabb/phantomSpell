@@ -1,17 +1,15 @@
 /**
  * Stream Adapters Index
  * 
- * Registry of all available stream sources including universal EEG device support.
+ * Registry of all available EEG stream sources.
  */
 
 import type { StreamAdapterRegistry } from '../types/stream';
-import { createPhantomLinkAdapter } from './PhantomLinkAdapter';
 import { createESPEEGAdapter } from './ESPEEGAdapter';
 import { createUniversalEEGAdapter } from './UniversalEEGAdapter';
 import { listDeviceProfiles } from '../devices/deviceProfiles';
 
 // Re-export adapters
-export { PhantomLinkAdapter, createPhantomLinkAdapter } from './PhantomLinkAdapter';
 export { ESPEEGAdapter, createESPEEGAdapter } from './ESPEEGAdapter';
 export { 
   UniversalEEGAdapter, 
@@ -26,14 +24,8 @@ export {
  */
 export const streamAdapterRegistry: StreamAdapterRegistry = {
   // -------------------------------------------------------------------------
-  // PhantomLink (Original spike data)
+  // PhantomLink removed - P300 speller uses EEG boards only
   // -------------------------------------------------------------------------
-  'phantomlink': {
-    name: 'PhantomLink MC_Maze',
-    description: '142-channel spike data from MC_Maze dataset (40 Hz)',
-    factory: createPhantomLinkAdapter,
-    defaultUrl: 'wss://phantomlink.fly.dev',
-  },
   
   // -------------------------------------------------------------------------
   // OpenBCI Devices
@@ -232,7 +224,7 @@ export function listAdapters() {
  */
 export function listAdaptersByCategory() {
   const categories = {
-    'Neural Data': ['phantomlink'],
+    // 'Neural Data': [] - Removed PhantomLink support
     'OpenBCI': ['openbci-cyton', 'openbci-cyton-daisy', 'openbci-ganglion'],
     'Consumer EEG': ['neurosky-mindwave', 'muse-2', 'muse-s'],
     'Research EEG': ['emotiv-insight', 'emotiv-epoc-x'],

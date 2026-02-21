@@ -1,6 +1,6 @@
 /**
  * Unit tests for Brainflow Export Utilities
- * Tests conversion between PhantomLoop electrode configurations and Brainflow formats
+ * Tests conversion between PhantomSpell electrode configurations and Brainflow formats
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -84,7 +84,7 @@ describe('exportToBrainflow', () => {
     expect(result.channels).toHaveLength(8);
     expect(result.montage).toBe('10-20');
     expect(result.sampling_rate).toBe(250);
-    expect(result.metadata.source).toBe('PhantomLoop Electrode Placement');
+    expect(result.metadata.source).toBe('PhantomSpell Electrode Placement');
     expect(result.metadata.version).toBe('1.0.0');
     expect(result.metadata.notes).toBe('Test configuration for unit tests');
   });
@@ -274,7 +274,7 @@ describe('importFromBrainflow', () => {
       sampling_rate: 250,
       created_at: '2023-11-14T22:13:20.000Z',
       metadata: {
-        source: 'PhantomLoop',
+        source: 'PhantomSpell',
         version: '1.0.0',
         notes: 'Imported config',
       },

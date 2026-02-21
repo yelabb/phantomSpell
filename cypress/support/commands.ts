@@ -1,5 +1,5 @@
 // ***********************************************
-// Custom Cypress Commands for PhantomLoop
+// Custom Cypress Commands for PhantomSpell
 // ***********************************************
 
 declare global {

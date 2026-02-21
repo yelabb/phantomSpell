@@ -1,4 +1,4 @@
-// PhantomLink data packet types based on the MessagePack binary stream
+// EEG data packet types based on the MessagePack binary stream
 
 export interface SpikeData {
   channel_ids: number[];

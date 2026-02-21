@@ -48,7 +48,7 @@ EEG Device (TCP/Serial/BLE)
     ↓
 WebSocket Bridge (Python/Node.js)
     ↓ (ws://localhost:876x)
-PhantomLoop (Browser)
+PhantomSpell (Browser)
 ```
 
 ## What's New
@@ -136,7 +136,7 @@ python scripts/lsl_ws_bridge.py --list
 # Run with simulated data (for testing)
 python scripts/lsl_ws_bridge.py --simulate
 
-# Connect in PhantomLoop to ws://localhost:8767
+# Connect in PhantomSpell to ws://localhost:8767
 ```
 
 **WebSocket Commands:**
@@ -172,7 +172,7 @@ python pieeg_ws_bridge.py --rate 250 --gain 24
 #   --port      WebSocket port (default: 8766)
 #   --brainflow Use BrainFlow instead of direct SPI
 
-# Connect in PhantomLoop to ws://<raspberry-pi-ip>:8766
+# Connect in PhantomSpell to ws://<raspberry-pi-ip>:8766
 ```
 
 **Development Mode (no hardware):**
@@ -191,7 +191,7 @@ cd scripts
 pip install websockets
 python cerelog_ws_bridge.py
 
-# Connect in PhantomLoop to ws://localhost:8765
+# Connect in PhantomSpell to ws://localhost:8765
 ```
 
 ### 3. Access Electrode Placement
@@ -425,4 +425,4 @@ A: Use 'brainflow-generic' device type and configure manually, or add a new prof
 
 ## License
 
-Same as PhantomLoop main project.
+Same as PhantomSpell main project.

@@ -75,7 +75,6 @@ function App() {
       {/* Welcome screen */}
       {currentScreen === 'welcome' && (
         <WelcomeScreen 
-          onConnectToDashboard={() => setCurrentScreen('dashboard')}
           onConnectToESPEEG={() => setCurrentScreen('electrode-placement')}
         />
       )}
@@ -90,9 +89,7 @@ function App() {
       
       {/* Research Dashboard */}
       {currentScreen === 'dashboard' && (
-        <SpellerDashboard 
-          onConfigureElectrodes={() => setCurrentScreen('electrode-placement')}
-        />
+        <SpellerDashboard />
       )}
     </div>
   );

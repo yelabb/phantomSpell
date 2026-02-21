@@ -10,9 +10,9 @@ export const COLORS = {
   BACKGROUND: '#0a0a0a', // Near black
 } as const;
 
-// PhantomLink server configuration - ONE SOURCE OF TRUTH
+// EEG Bridge server configuration
 export const SERVER_CONFIG = {
-  BASE_URL: 'wss://phantomlink.fly.dev',
+  BASE_URL: 'ws://localhost:8765', // Default PiEEG bridge
 } as const;
 
 // Stream configuration

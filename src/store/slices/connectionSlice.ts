@@ -54,7 +54,7 @@ export const createConnectionSlice: StateCreator<
       ws.onerror = (error) => {
         console.error('[PhantomLoop] WebSocket error:', error);
         set({ 
-          connectionError: 'Failed to connect to PhantomLink server',
+          connectionError: 'Failed to connect to EEG bridge server',
           isConnected: false 
         });
       };
