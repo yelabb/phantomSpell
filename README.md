@@ -8,7 +8,6 @@
 
 **P300-Based BCI Speller Interface**
 
-[![GitHub](https://img.shields.io/badge/GitHub-yelabb/phantomSpell-181717.svg?logo=github)](https://github.com/yelabb/phantomSpell)
 [![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![TensorFlow.js](https://img.shields.io/badge/TensorFlow.js-4.22-orange.svg)](https://www.tensorflow.org/js)
@@ -16,8 +15,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
-<img width="2524"  alt="image" src="https://github.com/user-attachments/assets/b07558b9-381d-457e-941c-0be0ad97a398" />
-<img width="1977" height="1973" alt="image" src="https://github.com/user-attachments/assets/8b8461b0-eb94-4113-8b98-eb20d332473e" />
+<img width="1333" height="931" alt="image" src="https://github.com/user-attachments/assets/7b319c9b-86cd-4535-8dc4-31b4ac066447" />
+<img width="1333" alt="image" src="https://github.com/user-attachments/assets/b16e0d63-d623-4586-b255-944a326fc40d" />
+<img width="1333" alt="image" src="https://github.com/user-attachments/assets/d08eda0b-afd5-4604-9130-dfb2c778cd37" />
+<img width="1333" alt="image" src="https://github.com/user-attachments/assets/89229bc0-196a-4d35-b88f-fa691d432990" />
+
 
 
 ---
@@ -45,7 +47,7 @@ PhantomSpell supports **any multichannel EEG device** through a unified adapter 
 
 | Manufacturer | Device | Channels | Sample Rate | Protocol |
 |--------------|--------|----------|-------------|----------|
-| **PiEEG** | PiEEG 8-ch | 8 | 250 Hz | WebSocket |
+| **PhantomLink** | MC_Maze Dataset | 142 | 40 Hz | WebSocket (MessagePack) |
 | **OpenBCI** | Cyton | 8 | 250 Hz | Serial/WiFi |
 | **OpenBCI** | Cyton + Daisy | 16 | 125 Hz | Serial/WiFi |
 | **OpenBCI** | Ganglion | 4 | 200 Hz | BLE |
@@ -130,8 +132,8 @@ PhantomSpell supports **any multichannel EEG device** through a unified adapter 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yelabb/PhantomLoop.git
-cd PhantomLoop
+git clone https://github.com/yelabb/phantomSpell.git
+cd phantomSpell
 
 # Install dependencies
 npm install
@@ -144,13 +146,7 @@ npm run dev
 
 ### Connect to Data Sources
 
-**Option 1: PhantomLink (No hardware needed)**
-```bash
-# Use the default PhantomLink server
-# wss://phantomlink.fly.dev
-```
-
-**Option 2: PiEEG (Raspberry Pi)**
+** PiEEG (Raspberry Pi)**
 ```bash
 # 1. Connect PiEEG shield to Raspberry Pi GPIO
 # 2. Enable SPI: sudo raspi-config → Interface Options → SPI
@@ -162,7 +158,7 @@ python scripts/pieeg_ws_bridge.py --rate 250 --gain 24
 # 5. Select "PiEEG" in the device selector
 ```
 
-**Option 3: Lab Streaming Layer (130+ Devices)**
+** Lab Streaming Layer (130+ Devices)**
 ```bash
 # 1. Start your LSL source (OpenBCI GUI, muse-lsl, BrainVision, etc.)
 # 2. Run the LSL WebSocket bridge
@@ -179,7 +175,7 @@ python scripts/lsl_ws_bridge.py --stream "OpenBCI_EEG"
 python scripts/lsl_ws_bridge.py --list
 ```
 
-**Option 4: Cerelog ESP-EEG (WiFi)**
+** Cerelog ESP-EEG (WiFi)**
 ```bash
 # 1. Connect to ESP-EEG WiFi: SSID: CERELOG_EEG, Password: cerelog123
 # 2. Run the WebSocket bridge
@@ -191,7 +187,7 @@ python scripts/cerelog_ws_bridge.py
 
 ---
 
-## � WebSocket Bridges
+## WebSocket Bridges
 
 Since browsers cannot directly access hardware (SPI, Serial, BLE, TCP), PhantomLoop includes Python bridge scripts that expose devices via WebSocket:
 
@@ -372,8 +368,8 @@ PhantomLoop is a single-page React application with modular state management:
 ### System Overview
 ```
 ┌─────────────────────────┐     ┌─────────────────────────┐
-│      PhantomLink        │     │      EEG Devices        │
-│    (142ch @ 40Hz)       │     │     (1-16ch @ 250Hz)    │
+│      Simulations        │     │      EEG Devices        │
+│    (---ch @ --Hz)       │     │     (1-16ch @ 250Hz)    │
 └───────────┬─────────────┘     └───────────┬─────────────┘
             │                               │
             └───────────────┬───────────────┘
@@ -419,39 +415,6 @@ PhantomLoop is a single-page React application with modular state management:
 
 ---
 
-## 🎯 Visualization Dashboard
-
-The dashboard provides **synchronized visualization panels**:
-
-### Center-Out Arena (2D Top-Down)
-Real-time cursor tracking in a center-out reaching task (8 targets):
-- **🟢 Ground Truth Cursor** (Green): Actual cursor position from dataset kinematics
-- **🔵 Decoder Output** (Blue): Your algorithm's predicted position  
-- **🟣 Active Target** (Purple): Current reach target with hit detection
-- Error line and color-coded error bar visualization
-
-### Neural Activity Panels
-- **Neural Waterfall**: Scrolling heatmap of all channels over time
-- **Neuron Activity Grid**: Individual channel firing patterns
-- **Spike Raster Plot**: Precise spike timing visualization
-- **Population Dynamics**: Dimensionality-reduced neural trajectories
-- **Spectral Power Panel**: Real-time frequency analysis
-
-### Electrode Placement (EEG Mode)
-- Interactive 10-20/10-10 montage configuration
-- Real-time signal quality indicators
-- Device-specific default layouts
-
-### Performance Metrics
-- **Accuracy Gauge**: Circular gauge (0-100%)
-- **Quick Stats**: Mean error, samples processed
-- **Stream Monitor**: Latency, FPS, packet statistics
-- **Correlation Matrix**: Inter-channel relationships
-
-**Goal:** Achieve >90% accuracy with <15mm mean error.
-
----
-
 ## 🧠 Built-in Decoders
 
 ### JavaScript Baselines
@@ -493,7 +456,7 @@ See [docs/CODE_EDITOR.md](docs/CODE_EDITOR.md) for full documentation.
 
 ### Deploy to Vercel (Recommended)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yelabb/PhantomLoop)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yelabb/phantomSpell)
 
 ```bash
 vercel --prod
@@ -501,7 +464,7 @@ vercel --prod
 
 ### Deploy to Netlify
 
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/yelabb/PhantomLoop)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/yelabb/phantomSpell)
 
 - Build command: `npm run build`
 - Publish directory: `dist`
@@ -575,190 +538,6 @@ export const PERFORMANCE_THRESHOLDS = {
 };
 ```
 
----
-
-## 📁 Project Structure
-
-```
-src/
-├── components/           # React components (15+ visualization components)
-│   ├── visualization/   # Arena, gauges, charts, spectral analysis
-│   ├── CodeEditor.tsx   # Monaco editor with AI assistance
-│   ├── DecoderSelector.tsx
-│   ├── ElectrodePlacementScreen.tsx
-│   ├── MetricsPanel.tsx
-│   ├── ResearchDashboard.tsx
-│   ├── SessionManager.tsx
-│   ├── StreamSelector.tsx
-│   └── TemporalInspector.tsx
-├── hooks/               # Custom React hooks
-│   ├── useDecoder.ts    # Decoder execution
-│   ├── useESPEEG.ts     # Cerelog ESP-EEG device hook
-│   ├── useMessagePack.ts# Binary protocol parsing
-│   ├── usePerformance.ts# FPS and latency monitoring
-│   ├── useStream.ts     # Unified stream handling
-│   └── useWebSocket.ts  # WebSocket connection
-├── store/               # Zustand state (slice pattern)
-│   └── slices/          # connectionSlice, streamSlice, decoderSlice, etc.
-├── streams/             # Stream adapters
-│   ├── ESPEEGAdapter.ts # Cerelog ESP-EEG
-│   ├── PhantomLinkAdapter.ts
-│   └── UniversalEEGAdapter.ts
-├── decoders/            # BCI decoder implementations
-│   ├── baselines.ts     # JS decoders
-│   ├── dynamicModels.ts # Dynamic input shape models
-│   ├── tfjsDecoders.ts  # TFJS model definitions
-│   └── tfjsModels.ts    # Model architectures
-├── devices/             # Device profiles and configurations
-├── types/               # TypeScript definitions
-└── utils/               # Constants, helpers, export utilities
-scripts/
-└── cerelog_ws_bridge.py # WebSocket-TCP bridge for ESP-EEG
-cypress/                 # E2E tests
-```
-
----
-
-## 🧠 Adding Custom Decoders
-
-### JavaScript Decoder
-
-```typescript
-// src/decoders/baselines.ts
-export const myDecoder: Decoder = {
-  id: 'my-decoder',
-  name: 'My Custom Decoder',
-  type: 'javascript',
-  description: 'Custom decoder description',
-  code: `
-    // Available inputs:
-    // - input.kinematics: { x, y, vx, vy }
-    // - input.spikes: number[] (N channels)
-    // - input.intention: { target_id, target_x, target_y }
-    // - input.timestamp: number
-    
-    const { x, y, vx, vy } = input.kinematics;
-    const predictedX = x + vx * 0.025;
-    const predictedY = y + vy * 0.025;
-    
-    return { x: predictedX, y: predictedY, vx, vy };
-  `
-};
-```
-
-### TensorFlow.js Decoder
-
-```typescript
-// src/decoders/tfjsDecoders.ts
-export const myTfjsDecoder: Decoder = {
-  id: 'tfjs-custom',
-  name: 'Custom TFJS Model',
-  type: 'tfjs',
-  tfjsModelType: 'mlp',
-  description: 'My custom neural decoder',
-  architecture: 'Dense(N → 64 → 2)',
-};
-```
-
-### Adding a Custom Stream Source
-
-```typescript
-// Implement the StreamSource interface
-import type { StreamSource, StreamConfig, StreamSample } from './types/stream';
-
-class MyCustomAdapter implements StreamSource {
-  readonly id = 'my-source';
-  readonly name = 'My Custom Source';
-  
-  async connect(url: string, config?: StreamConfig): Promise<void> {
-    // Connect to your data source
-  }
-  
-  disconnect(): void {
-    // Clean up connection
-  }
-  
-  onSample(callback: (sample: StreamSample) => void): () => void {
-    // Subscribe to incoming samples, return unsubscribe function
-  }
-}
-```
-
----
-
-## 🧪 Testing
-
-```bash
-# Unit tests (Vitest)
-npm run test           # Watch mode
-npm run test:run       # Single run
-npm run test:coverage  # With coverage report
-
-# E2E tests (Cypress)
-npm run cy:open        # Interactive mode
-npm run cy:run         # Headless mode
-npm run test:e2e       # Full E2E with dev server
-```
-
----
-
-## ⚙️ TensorFlow.js Backend Selection
-
-PhantomLoop auto-detects the best available backend:
-
-| Backend | Performance | Availability |
-|---------|-------------|--------------|
-| **WebGPU** | Fastest | Chrome/Edge (experimental) |
-| **WebGL** | Good | All modern browsers |
-| **CPU** | Fallback | Universal |
-
-Check console on startup:
-```
-[PhantomLoop] TensorFlow.js initialized with WebGPU backend
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Cannot connect to server
-- Verify PhantomLink is running at `wss://phantomlink.fly.dev`
-- Create a session via `/api/sessions/create`
-- Check network/firewall allows WebSocket connections
-
-### High Latency
-- Use production server for lower RTT
-- Simplify decoder logic
-- Close other browser tabs
-
-### Decoder Not Loading
-- Check browser console for errors
-- Wait for TensorFlow.js initialization (5-10s)
-- Verify Web Worker is loading correctly
-
-### Desync Detected
-- Normal when total latency exceeds 50ms
-- Usually occurs during TFJS model initialization or network congestion
-
----
-
-## 📚 Resources
-
-### Documentation
-- [Cerelog ESP-EEG Integration](EEG_INTEGRATION.md) - Full EEG device setup guide
-- [Code Editor Guide](docs/CODE_EDITOR.md) - Monaco editor usage and AI features
-
-### External Links
-| Resource | Description |
-|----------|-------------|
-| [PhantomLink Backend](https://github.com/yelabb/PhantomLink) | Neural data streaming server |
-| [Neural Latents Benchmark](https://neurallatents.github.io/) | MC_Maze dataset |
-| [DANDI Archive #000140](https://dandiarchive.org/dandiset/000140) | Dataset download |
-| [TensorFlow.js](https://www.tensorflow.org/js) | ML framework |
-| [Brainflow](https://brainflow.org/) | Universal EEG interface |
-
----
-
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
@@ -772,15 +551,10 @@ This project was developed with assistance from AI coding assistants:
 - Grok code fast 1 (xAI)
 - Gemini 3.0 Pro (Google)
 
-All code was tested and validated by the author.
-
 ---
 
 <div align="center">
 
-**Built for the BCI research community** 🧠⚡
-
-*"Visualize. Decode. Validate. Iterate."*
 
 </div>
 
