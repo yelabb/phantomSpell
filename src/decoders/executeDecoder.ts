@@ -1,25 +1,26 @@
 /**
  * Unified Decoder Execution
- * 
+ *
  * Execution paths:
- * 1. Built-in TFJS (tfjsModelType) → Web Worker inference
+ * 1. Built-in TFJS (tfjsModelType) → Web Worker inference (P300 binary classification)
  * 2. Custom TFJS code → Web Worker (same as built-in)
  * 3. Simple JS code → Direct execution (baselines)
- * 
+ *
+ * All TFJS models are P300 binary classifiers:
+ *   Input:  epoched EEG window
+ *   Output: P(target | epoch) ∈ [0, 1]
+ *
  * Custom TensorFlow.js code is executed in the Web Worker
  * where the full tf namespace (including tf.train) is available.
  */
 
-import type { DecoderInput, DecoderOutput, Decoder } from '../types/decoders';
+import type { DecoderInput, DecoderOutput, P300Output, Decoder } from '../types/decoders';
 import { PERFORMANCE_THRESHOLDS } from '../utils/constants';
 import { tfWorker, getWorkerModelType } from './tfWorkerManager';
-
-// Spike history for temporal models (LSTM, Attention)
-const spikeHistory: number[][] = [];
-const MAX_HISTORY = 10;
+import { extractFeatures } from '../utils/p300Pipeline';
 
 // Cache for compiled JS functions (simple decoders, not TFJS)
-type JSDecoderFn = (input: DecoderInput) => { x: number; y: number; vx?: number; vy?: number; confidence?: number };
+type JSDecoderFn = (input: DecoderInput) => { x: number; y: number; vx?: number; vy?: number; confidence?: number } | P300Output;
 const jsFunctions = new Map<string, JSDecoderFn>();
 
 // Track which custom TFJS models have been loaded into the worker
@@ -68,40 +69,58 @@ export function clearDecoderCache(decoderId?: string) {
 }
 
 /**
- * Execute a custom TensorFlow.js model decoder via Web Worker
- * Same execution path as built-in TFJS models - code runs in worker
+ * Transpose epoch from [channels, samples] → [samples, channels]
+ * for temporal/convolutional models.
+ */
+function transposeEpoch(epoch: number[][]): number[][] {
+  const channels = epoch.length;
+  const samples = epoch[0]?.length ?? 0;
+  const transposed: number[][] = [];
+  for (let s = 0; s < samples; s++) {
+    const row: number[] = [];
+    for (let c = 0; c < channels; c++) {
+      row.push(epoch[c][s]);
+    }
+    transposed.push(row);
+  }
+  return transposed;
+}
+
+/**
+ * Execute a custom TensorFlow.js model decoder via Web Worker.
+ * Returns a P300Output with the classifier score.
  */
 async function executeCustomTFJSDecoder(
   decoder: Decoder,
   input: DecoderInput
 ): Promise<DecoderOutput> {
   const startTime = performance.now();
-  
+
   // Create model in worker if not already loaded
   if (!customModelsLoaded.has(decoder.id)) {
     await tfWorker.createModelFromCode(decoder.id, decoder.code!);
     customModelsLoaded.add(decoder.id);
   }
-  
-  // Run inference via worker (same as built-in models)
-  const output = await tfWorker.infer(decoder.id, [...input.spikes]);
+
+  // Prepare input: prefer eegData (epoched), fall back to spikes (flattened)
+  let workerInput: number[] | number[][];
+  if (input.eegData) {
+    workerInput = extractFeatures(input.eegData);
+  } else {
+    workerInput = [...input.spikes];
+  }
+
+  // Run inference via worker
+  const output = await tfWorker.infer(decoder.id, workerInput);
   const latency = performance.now() - startTime;
 
-  // Scale output to velocity (same as built-in)
-  const VELOCITY_SCALE = 50;
-  const vx = output[0] * VELOCITY_SCALE;
-  const vy = output[1] * VELOCITY_SCALE;
-
-  // Calculate new position
-  const DT = 0.025;
-  const x = input.kinematics.x + vx * DT;
-  const y = input.kinematics.y + vy * DT;
+  // output[0] is P(target) from sigmoid
+  const confidence = output[0] ?? 0;
 
   return {
-    x: Math.max(-100, Math.min(100, x)),
-    y: Math.max(-100, Math.min(100, y)),
-    vx,
-    vy,
+    x: 0,
+    y: 0,
+    confidence,
     latency,
   };
 }
@@ -117,7 +136,7 @@ function executeSimpleJSDecoder(
 
   const decoderFn = getOrCompileJSDecoder(decoder);
   const result = decoderFn(input);
-  
+
   const latency = performance.now() - startTime;
 
   if (latency > PERFORMANCE_THRESHOLDS.DECODER_TIMEOUT_MS) {
@@ -125,10 +144,10 @@ function executeSimpleJSDecoder(
   }
 
   return {
-    x: result.x,
-    y: result.y,
-    vx: result.vx,
-    vy: result.vy,
+    x: 'x' in result ? result.x : 0,
+    y: 'y' in result ? result.y : 0,
+    vx: 'vx' in result ? result.vx : undefined,
+    vy: 'vy' in result ? result.vy : undefined,
     confidence: result.confidence,
     latency,
   };
@@ -150,68 +169,68 @@ async function executeCodeDecoder(
 }
 
 /**
- * Execute a TensorFlow.js decoder using Web Worker (asynchronous, non-blocking)
+ * Execute a TensorFlow.js P300 classifier using Web Worker (asynchronous, non-blocking).
+ *
+ * Routes the EEG epoch to the correct model type and returns a P300 classification score.
  */
 export async function executeTFJSDecoder(
   decoder: Decoder,
   input: DecoderInput
 ): Promise<DecoderOutput> {
   const startTime = performance.now();
-  
+
   try {
-    const modelType = decoder.tfjsModelType === 'kalman-neural' ? 'mlp' : decoder.tfjsModelType;
-    const workerType = getWorkerModelType(modelType);
-    
+    const workerType = getWorkerModelType(decoder.tfjsModelType);
+
     if (!workerType) {
       throw new Error(
         `[Decoder] Unknown TFJS model type "${decoder.tfjsModelType}" for decoder "${decoder.name}"`
       );
     }
 
-    // Prepare input based on model type
+    // Determine if this is a temporal model (needs [samples, channels] input)
+    const isTemporal = workerType === 'erp-cnn' || workerType === 'erp-lstm' || workerType === 'erp-attention';
+
+    // Prepare input based on model architecture
     let workerInput: number[] | number[][];
-    
-    if (workerType === 'lstm' || workerType === 'attention') {
-      // Temporal models need spike history
-      spikeHistory.push([...input.spikes]);
-      if (spikeHistory.length > MAX_HISTORY) {
-        spikeHistory.shift();
+
+    if (isTemporal) {
+      // Temporal models need [samples, channels] — transpose from [channels, samples]
+      if (input.eegData) {
+        workerInput = transposeEpoch(input.eegData);
+      } else {
+        // Fallback: reshape spikes into a pseudo-epoch
+        const channels = 8;
+        const samplesPerChannel = Math.floor(input.spikes.length / channels);
+        const epoch: number[][] = [];
+        for (let c = 0; c < channels; c++) {
+          epoch.push(input.spikes.slice(c * samplesPerChannel, (c + 1) * samplesPerChannel));
+        }
+        workerInput = transposeEpoch(epoch);
       }
-      
-      // Pad history if needed
-      while (spikeHistory.length < MAX_HISTORY) {
-        spikeHistory.unshift(new Array(142).fill(0));
-      }
-      
-      workerInput = spikeHistory.map(s => [...s]);
     } else {
-      // Non-temporal models just need current spikes
-      workerInput = [...input.spikes];
+      // Flat models (p300-classifier, erp-mlp): extract flattened features
+      if (input.eegData) {
+        workerInput = extractFeatures(input.eegData);
+      } else {
+        workerInput = [...input.spikes];
+      }
     }
 
     // Run inference in worker (off main thread)
     const output = await tfWorker.infer(workerType, workerInput);
     const latency = performance.now() - startTime;
 
-    // Scale output to velocity
-    const VELOCITY_SCALE = 50;
-    const vx = output[0] * VELOCITY_SCALE;
-    const vy = output[1] * VELOCITY_SCALE;
-
-    // Calculate new position
-    const DT = 0.025;
-    const x = input.kinematics.x + vx * DT;
-    const y = input.kinematics.y + vy * DT;
+    // output[0] is P(target) from sigmoid ∈ [0, 1]
+    const confidence = output[0] ?? 0;
 
     return {
-      x: Math.max(-100, Math.min(100, x)),
-      y: Math.max(-100, Math.min(100, y)),
-      vx,
-      vy,
+      x: 0,
+      y: 0,
+      confidence,
       latency,
     };
   } catch (error) {
-    // Never silently corrupt data - rethrow with context
     throw new Error(
       `[Decoder] TFJS Worker failed for "${decoder.name}": ${error instanceof Error ? error.message : String(error)}`
     );
@@ -219,13 +238,13 @@ export async function executeTFJSDecoder(
 }
 
 /**
- * Execute any decoder - unified routing
- * 
+ * Execute any decoder — unified routing
+ *
  * Execution paths:
  * 1. Has code → Auto-detect: TFJS model code or simple JS
- * 2. Has tfjsModelType → Web Worker inference (built-in TFJS models)
- * 
- * THROWS on invalid decoder configuration - never silently corrupts data
+ * 2. Has tfjsModelType → Web Worker inference (P300 binary classification)
+ *
+ * THROWS on invalid decoder configuration — never silently corrupts data
  */
 export async function executeDecoder(
   decoder: Decoder,
@@ -236,13 +255,13 @@ export async function executeDecoder(
   if (decoder.code) {
     return executeCodeDecoder(decoder, input);
   }
-  
+
   // Built-in TFJS decoders (Web Worker, non-blocking)
   if (decoder.tfjsModelType) {
     return executeTFJSDecoder(decoder, input);
   }
-  
-  // Invalid decoder configuration - fail hard, never silently corrupt data
+
+  // Invalid decoder configuration — fail hard, never silently corrupt data
   throw new Error(
     `[Decoder] Invalid decoder configuration for "${decoder.name}" (id: ${decoder.id}). ` +
     `Decoder must have either 'code' (JavaScript/TFJS) or 'tfjsModelType' (built-in TFJS).`
