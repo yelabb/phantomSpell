@@ -28,20 +28,88 @@
 
 ## ✨ Key Features
 
-- **� P300 Matrix Speller** – 6×6 character grid with row/column flashing paradigm
+- **🔤 P300 Matrix Speller** – 6×6 character grid with row/column flashing paradigm
 - **🧠 EEG Device Support** – Optimized for PiEEG 8-channel, supports OpenBCI, Muse, LSL devices
-- **⚡ Real-Time Classification** – TensorFlow.js models with WebGPU/WebGL acceleration
-- **📚 Training & Calibration** – Supervised learning with copy-spelling tasks
+- **⚡ Real-Time Classification** – LDA baseline classifier + TensorFlow.js models with WebGPU/WebGL acceleration
+- **📚 Training & Calibration** – Copy-spelling calibration with LDA model training from labeled EEG epochs
 - **💬 Word Prediction** – Smart autocomplete for faster communication
 - **📊 Performance Metrics** – Accuracy tracking, ITR (bits/min), selection confidence
-- **🎯 Signal Quality Monitoring** – Real-time electrode impedance and contact feedback
+- **🎯 Signal Quality Monitoring** – Estimated contact quality via noise proxy (not hardware impedance)
 - **🔧 Brainflow Integration** – Export configurations for any Brainflow-compatible EEG device
 
 ---
 
-## 📡 Universal EEG Device Support
+## 🏁 Golden Path: Simulated EEG → Calibration → Spell "HELLO"
 
-PhantomSpell supports **any multichannel EEG device** through a unified adapter pattern.
+This is the single verified path to get PhantomSpell running end-to-end in under 10 minutes, no hardware required.
+
+### Step 1: Start the app
+
+```bash
+git clone https://github.com/yelabb/phantomSpell.git
+cd phantomSpell
+npm install
+npm run dev
+# Open http://localhost:5173
+```
+
+### Step 2: Start the synthetic EEG bridge
+
+In a second terminal:
+
+```bash
+cd scripts
+python -m venv venv
+venv/Scripts/activate   # Windows (or: source venv/bin/activate on Linux/Mac)
+pip install websockets brainflow numpy
+python synthetic_board_bridge.py
+```
+
+This starts a WebSocket server on `ws://localhost:8766` that streams 8-channel synthetic EEG at 250 Hz.
+
+### Step 3: Connect
+
+In the PhantomSpell UI:
+1. Click the connection status indicator → enter `ws://localhost:8766` → Connect
+2. Verify the stream indicator shows connected with sample rate
+
+### Step 4: Calibrate
+
+1. You start on the **Training** tab. Click **Start Calibration**
+2. Read the instructions, click **I'm Ready – Begin Training**
+3. Focus on the highlighted target character and count flashes
+4. After enough epochs are collected, click **Train Model**
+5. The LDA classifier trains on your collected epochs and reports cross-validated accuracy
+
+### Step 5: Spell
+
+1. After calibration completes with acceptable accuracy (>60%), click **Start Spelling**
+2. The system switches to free-spelling mode
+3. Focus on letters. After each trial cycle, the classifier selects the character with highest P300 response
+
+> **Note:** With simulated EEG (random noise), classification accuracy will be at chance level (~8%). With real EEG and genuine P300 attention, expect 70-85% accuracy after calibration.
+
+---
+
+## 📡 EEG Device Support
+
+PhantomSpell supports multichannel EEG devices through a unified adapter pattern.
+
+### Device Verification Matrix
+
+| Device | Status | Protocol | Verified Path |
+|--------|--------|----------|---------------|
+| **Brainflow Synthetic** | ✅ Verified | WebSocket bridge | `synthetic_board_bridge.py` |
+| **PiEEG 8ch** | ✅ Verified | WebSocket bridge (SPI) | `pieeg_ws_bridge.py` |
+| **PiEEG + DSP** | ✅ Verified | WebSocket bridge (SPI+DSP) | `pieeg_ws_bridge_dsp.py` |
+| **LSL Generic** | ✅ Verified | WebSocket bridge (LSL) | `lsl_ws_bridge.py` |
+| **Cerelog ESP-EEG** | ✅ Verified | WebSocket bridge (TCP) | `cerelog_ws_bridge.py` |
+| **OpenBCI Cyton** | 🔧 Supported (via LSL/Brainflow) | Requires LSL bridge | See LSL section |
+| **Muse 2 / Muse S** | 🔧 Supported (via muse-lsl) | Requires LSL bridge | See LSL section |
+| **Emotiv EPOC X** | 🔧 Supported (via EmotivPRO LSL) | Requires LSL bridge | See LSL section |
+| **Other LSL devices** | 🔧 Supported (via LSL) | Requires LSL bridge | See LSL section |
+
+> **✅ Verified** = tested end-to-end with PhantomSpell. **🔧 Supported** = should work via LSL/Brainflow bridge but not yet independently verified.
 
 ### Supported Devices
 
@@ -53,52 +121,36 @@ PhantomSpell supports **any multichannel EEG device** through a unified adapter 
 | **Muse** | Muse 2 / Muse S | 4 | 256 Hz | BLE |
 | **Emotiv** | Insight | 5 | 128 Hz | BLE |
 | **Emotiv** | EPOC X | 14 | 128/256 Hz | BLE |
-| **NeuroSky** | MindWave | 1 | 512 Hz | Bluetooth |
 | **PiEEG** | PiEEG | 8 | 250-16000 Hz | SPI (Raspberry Pi) |
 | **PiEEG** | PiEEG-16 | 16 | 250-8000 Hz | SPI (Raspberry Pi) |
 | **PiEEG** | IronBCI | 8 | 250 Hz | BLE/WiFi |
-| **PiEEG** | IronBCI-32 | 32 | 250 Hz | WiFi |
-| **PiEEG** | JNEEG | 8 | 250-2000 Hz | SPI (Jetson Nano) |
-| **PiEEG** | ardEEG | 8 | 250 Hz | Serial (Arduino) |
-| **PiEEG** | MicroBCI | 8 | 250 Hz | BLE (STM32) |
 | **Cerelog** | ESP-EEG | 8 | 250 Hz | WiFi (TCP) |
 | **LSL** | Generic (8-64ch) | 8-64 | Variable | Lab Streaming Layer |
-| **LSL** | Brain Products | 32+ | Up to 25kHz | LSL (via Connector) |
-| **LSL** | BioSemi ActiveTwo | 32+ | Up to 16kHz | LSL |
-| **LSL** | g.tec | 16+ | Up to 38kHz | LSL (g.NEEDaccess) |
-| **LSL** | Cognionics | 20-30 | 500 Hz | LSL |
-| **LSL** | ANT Neuro | 32+ | 2048 Hz | LSL |
-| **LSL** | NIRx fNIRS | 16+ | 10 Hz | LSL |
 | **Brainflow** | Synthetic | 8 | 250 Hz | Virtual |
 
 > ⚠️ **Note:** Browsers cannot connect directly to TCP/Serial/BLE. Hardware devices require a WebSocket bridge (Python scripts included).
 
 ### 🥧 PiEEG Integration
 
-[PiEEG](https://pieeg.com) is a low-cost, open-source EEG shield for Raspberry Pi using the ADS1299 ADC. PhantomLoop provides full support for the PiEEG device family:
+[PiEEG](https://pieeg.com) is a low-cost, open-source EEG shield for Raspberry Pi using the ADS1299 ADC. PhantomSpell provides full support for the PiEEG device family:
 
 | Device | Channels | Use Case | Link |
 |--------|----------|----------|------|
 | **PiEEG** | 8 | Raspberry Pi 3/4/5, research & learning | [pieeg.com/pieeg](https://pieeg.com/pieeg/) |
 | **PiEEG-16** | 16 | Extended coverage, dual ADS1299 | [pieeg.com/pieeg-16](https://pieeg.com/pieeg-16/) |
 | **IronBCI** | 8 | Wearable, BLE, mobile SDK | [pieeg.com/ironbci](https://pieeg.com/ironbci/) |
-| **IronBCI-32** | 32 | High-density research | [pieeg.com/ironbci-32](https://pieeg.com/ironbci-32/) |
-| **JNEEG** | 8 | Jetson Nano, GPU-accelerated DL | [pieeg.com/jneeg](https://pieeg.com/jneeg/) |
-| **ardEEG** | 8 | Arduino shield, beginner-friendly | [pieeg.com/ardeeg](https://pieeg.com/ardeeg/) |
-| **MicroBCI** | 8 | STM32 NUCLEO-WB55, ultra-compact | [pieeg.com/microbci](https://pieeg.com/microbci/) |
 
 **Key Specs:**
 - 24-bit resolution (ADS1299)
 - Programmable gain: 1, 2, 4, 6, 8, 12, 24
 - Configurable sample rates: 250-16000 SPS
-- Supports EEG, EMG, and ECG signals
 - BrainFlow compatible (board ID: 46)
 
 ⚠️ **Safety:** PiEEG must be powered by battery only (5V). Never connect to mains power!
 
 ### 🌐 Lab Streaming Layer (LSL) Integration
 
-[Lab Streaming Layer (LSL)](https://labstreaminglayer.org) is the universal protocol for streaming EEG and biosignal data in research settings. PhantomLoop supports **130+ LSL-compatible devices** through the included WebSocket bridge.
+[Lab Streaming Layer (LSL)](https://labstreaminglayer.org) is the universal protocol for streaming EEG and biosignal data in research settings. PhantomSpell supports LSL-compatible devices through the included WebSocket bridge.
 
 **Key Features:**
 - Real-time stream discovery on local network
@@ -106,22 +158,16 @@ PhantomSpell supports **any multichannel EEG device** through a unified adapter 
 - Multi-stream support (EEG, markers, motion)
 - Automatic reconnection on stream loss
 
-**LSL-Compatible Devices:**
+**LSL-Compatible Devices (via bridge):**
 
 | Manufacturer | Devices | Notes |
 |--------------|---------|-------|
 | **Brain Products** | actiCHamp, LiveAmp, BrainVision | Via LSL Connector app |
 | **BioSemi** | ActiveTwo 32-256ch | Research gold standard |
 | **g.tec** | g.USBamp, g.Nautilus, g.HIamp | Via g.NEEDaccess |
-| **ANT Neuro** | eego sport, eego mylab | Mobile & lab EEG |
-| **Cognionics** | Quick-20, Quick-30, Mobile-72 | Dry electrode systems |
 | **OpenBCI** | All models | Via OpenBCI GUI LSL |
 | **Muse** | Muse 1/2/S | Via muse-lsl |
 | **Emotiv** | EPOC, Insight, EPOC Flex | Via EmotivPRO LSL |
-| **NIRx** | NIRSport, NIRScout | fNIRS devices |
-| **Tobii** | Pro Glasses, Screen-based | Eye tracking |
-| **Neurosity** | Notion, Crown | Consumer EEG |
-| **BrainAccess** | HALO, MINI, MIDI | Affordable research EEG |
 
 📚 Full device list: [labstreaminglayer.org](https://labstreaminglayer.org/#checks:certified)
 
@@ -145,7 +191,7 @@ npm run dev
 
 ### Connect to Data Sources
 
-** PiEEG (Raspberry Pi)**
+**PiEEG (Raspberry Pi)**
 ```bash
 # 1. Connect PiEEG shield to Raspberry Pi GPIO
 # 2. Enable SPI: sudo raspi-config → Interface Options → SPI
@@ -153,18 +199,18 @@ npm run dev
 pip install websockets spidev RPi.GPIO numpy
 python scripts/pieeg_ws_bridge.py --rate 250 --gain 24
 
-# 4. In PhantomLoop, connect to ws://<raspberry-pi-ip>:8766
+# 4. In PhantomSpell, connect to ws://<raspberry-pi-ip>:8766
 # 5. Select "PiEEG" in the device selector
 ```
 
-** Lab Streaming Layer (130+ Devices)**
+**Lab Streaming Layer (130+ Devices)**
 ```bash
 # 1. Start your LSL source (OpenBCI GUI, muse-lsl, BrainVision, etc.)
 # 2. Run the LSL WebSocket bridge
 pip install websockets pylsl numpy
 python scripts/lsl_ws_bridge.py
 
-# 3. In PhantomLoop, connect to ws://localhost:8767
+# 3. In PhantomSpell, connect to ws://localhost:8767
 # 4. Select "LSL Stream" in the device selector
 
 # Advanced: Connect to specific stream by name
@@ -174,24 +220,25 @@ python scripts/lsl_ws_bridge.py --stream "OpenBCI_EEG"
 python scripts/lsl_ws_bridge.py --list
 ```
 
-** Cerelog ESP-EEG (WiFi)**
+**Cerelog ESP-EEG (WiFi)**
 ```bash
 # 1. Connect to ESP-EEG WiFi: SSID: CERELOG_EEG, Password: cerelog123
 # 2. Run the WebSocket bridge
 pip install websockets
 python scripts/cerelog_ws_bridge.py
 
-# 3. Select "Cerelog ESP-EEG" in PhantomLoop
+# 3. In PhantomSpell, connect to ws://localhost:8765
 ```
 
 ---
 
 ## WebSocket Bridges
 
-Since browsers cannot directly access hardware (SPI, Serial, BLE, TCP), PhantomLoop includes Python bridge scripts that expose devices via WebSocket:
+Since browsers cannot directly access hardware (SPI, Serial, BLE, TCP), PhantomSpell includes Python bridge scripts that expose devices via WebSocket:
 
 | Script | Device | Port | Mode |
 |--------|--------|------|------|
+| `synthetic_board_bridge.py` | BrainFlow synthetic board | 8766 | Virtual (no hardware) |
 | `lsl_ws_bridge.py` | Any LSL source (130+ devices) | 8767 | LSL Inlet → WebSocket |
 | `pieeg_ws_bridge.py` | PiEEG (Raspberry Pi) | 8766 | SPI / BrainFlow / Simulation |
 | `pieeg_ws_bridge_dsp.py` | PiEEG + Signal Hygiene | 8766 | SPI + Real-Time DSP |
@@ -208,12 +255,6 @@ python scripts/lsl_ws_bridge.py
 # Connect to specific stream by name
 python scripts/lsl_ws_bridge.py --stream "OpenBCI_EEG"
 
-# Connect to Muse via muse-lsl
-python scripts/lsl_ws_bridge.py --stream "Muse" --type EEG
-
-# List available streams on network
-python scripts/lsl_ws_bridge.py --list
-
 # Run with simulated data for testing (no hardware)
 python scripts/lsl_ws_bridge.py --simulate
 
@@ -227,20 +268,6 @@ python scripts/lsl_ws_bridge.py --port 8768
 {"command": "connect", "name": "OpenBCI_EEG", "stream_type": "EEG"}
 {"command": "disconnect"}
 {"command": "ping"}
-```
-
-**Response: Stream Metadata**
-```json
-{
-  "type": "metadata",
-  "stream": {
-    "name": "OpenBCI_EEG",
-    "stream_type": "EEG",
-    "channel_count": 8,
-    "sampling_rate": 250.0,
-    "channel_labels": ["Fp1", "Fp2", "C3", "C4", "P3", "P4", "O1", "O2"]
-  }
-}
 ```
 
 ### PiEEG Bridge
@@ -261,17 +288,9 @@ python scripts/pieeg_ws_bridge.py \
 python scripts/pieeg_ws_bridge.py  # Auto-detects non-Pi systems
 ```
 
-**WebSocket Commands:**
-```json
-{"command": "connect"}
-{"command": "disconnect"}
-{"command": "set_gain", "gain": 24}
-{"command": "set_sample_rate", "rate": 500}
-```
-
 ### PiEEG Bridge with DSP (Signal Hygiene)
 
-The DSP-enhanced bridge applies real-time digital signal processing before streaming, removing common EEG artifacts at the source:
+The DSP-enhanced bridge applies real-time digital signal processing before streaming:
 
 **Signal Hygiene Pipeline:**
 ```
@@ -295,62 +314,7 @@ python scripts/pieeg_ws_bridge_dsp.py --notch 50 --highpass 1.0 --lowpass 40
 
 # Full signal hygiene with artifact rejection and CAR
 python scripts/pieeg_ws_bridge_dsp.py --notch 60 --car --artifact-threshold 150
-
-# Minimal processing (DC block only)
-python scripts/pieeg_ws_bridge_dsp.py --no-notch --no-bandpass
-
-# High sample rate with adjusted filters
-python scripts/pieeg_ws_bridge_dsp.py --sample-rate 500 --notch 60 --lowpass 100
 ```
-
-**All DSP Options:**
-```bash
-# Network
---host 0.0.0.0          # WebSocket bind address
---port 8766             # WebSocket port
-
-# Hardware
---sample-rate 250       # 250, 500, 1000, 2000 Hz
---gain 24               # PGA gain: 1, 2, 4, 6, 8, 12, 24
---channels 8            # Number of channels
-
-# Notch Filter
---notch 60              # Powerline frequency (50 or 60 Hz)
---notch-harmonics 3     # Filter fundamental + N harmonics
---notch-q 30            # Quality factor (higher = narrower)
---no-notch              # Disable notch filter
-
-# Bandpass Filter
---highpass 0.5          # High-pass cutoff (Hz)
---lowpass 45            # Low-pass cutoff (Hz)
---filter-order 4        # Butterworth order
---no-bandpass           # Disable bandpass filter
-
-# DC Blocking
---dc-alpha 0.995        # DC blocker pole (0.99-0.999)
---no-dc-block           # Disable DC blocking
-
-# Artifact Rejection
---artifact-threshold 150  # Threshold in µV
---no-artifact            # Disable artifact rejection
-
-# Common Average Reference
---car                    # Enable CAR
---car-exclude "0,7"      # Exclude channels from CAR
-
-# Smoothing
---smooth 0.3             # Exponential smoothing alpha (0 = disabled)
-```
-
-**Extended Packet Format:**
-
-DSP packets include artifact flags per sample:
-```
-Header: magic(2) + type(1) + samples(2) + channels(1) + timestamp(8)
-Data:   [float32 × channels + artifact_byte] × samples
-```
-- `type = 0x02` indicates DSP-processed data
-- `artifact_byte` is a bitmask of channels with blanked artifacts
 
 ### Cerelog Bridge
 
@@ -386,60 +350,62 @@ PhantomSpell is a single-page React application with modular state management:
           ┌──────────────────────┼──────────────────────┐
           │                      │                      │
 ┌─────────▼─────────┐  ┌─────────▼─────────┐  ┌─────────▼─────────┐
-│  P300 Classifiers │  │  Speller Grid     │  │  Metrics Engine   │
-│  (TFJS / Custom)  │  │  (6×6 matrix)     │  │  (ITR, accuracy)  │
+│  P300 Pipeline    │  │  Speller Grid     │  │  Metrics Engine   │
+│  Markers → Epoch  │  │  (6×6 matrix)     │  │  (ITR, accuracy)  │
+│  → LDA / TFJS     │  │  rAF flash timing │  │                   │
 └───────────────────┘  └───────────────────┘  └───────────────────┘
 ```
 
+### P300 Classification Pipeline (implemented)
+1. **Flash Event** → Row/column illuminates for 125ms (via `requestAnimationFrame`)
+2. **Marker Recording** → Frame-accurate timestamp aligned to EEG stream clock
+3. **Epoch Extraction** → [-200ms, +800ms] window around flash onset from circular EEG buffer
+4. **Preprocessing** → Bandpass filter (0.5-30 Hz), CAR, baseline correction
+5. **Classification** → LDA classifier (or TFJS model) predicts target vs. non-target score
+6. **Aggregation** → Average scores per row/col across all flash cycles
+7. **Character Selection** → Intersect highest-scoring row and column
+
 ### Core Components
 1. **Stream Adapters** - Unified interface for any multichannel EEG device
-2. **WebSocket Client** - Binary MessagePack protocol for real-time streaming
-3. **State Management** - Zustand with 5 specialized slices (connection, stream, decoder, metrics, training)
-4. **P300 Classifier Engine** - TensorFlow.js models with dynamic channel support
-5. **Speller Grid** - 6×6 character matrix with row/column flashing paradigm
-6. **Calibration System** - Copy-spelling task with labeled data collection
-
-### State Slices (Zustand)
-- **connectionSlice**: WebSocket lifecycle, session management
-- **streamSlice**: EEG packet buffering with epoching for flash events
-- **decoderSlice**: P300 classifier registry, execution, loading states
-- **metricsSlice**: ITR tracking, accuracy monitoring, character selection stats
-- **trainingSlice**: Calibration data collection and model training workflow
-
-### P300 Classification Pipeline
-1. **Flash Event** → Row/column illuminates for 125ms
-2. **Epoch Extraction** → Capture 0-800ms post-flash EEG from all channels
-3. **Preprocessing** → Bandpass filter (0.5-30 Hz), baseline correction
-4. **Classification** → TensorFlow.js model predicts target vs. non-target
-5. **Aggregation** → Accumulate scores across multiple flash cycles
-6. **Character Selection** → Intersect highest-scoring row and column
+2. **EEG Ring Buffer** - Circular buffer for continuous EEG storage (30s at 250Hz)
+3. **Marker Manager** - Aligns flash timestamps (rAF frame time) to EEG sample indices
+4. **P300 Pipeline** - Epoch extraction, bandpass filter, CAR, baseline correction
+5. **LDA Classifier** - Fisher LDA with regularized covariance, LOO cross-validation
+6. **Speller Grid** - 6×6 character matrix with `requestAnimationFrame`-driven flashing
+7. **Calibration System** - Copy-spelling task → labeled epochs → LDA training
 
 ---
 
 ## 🧠 P300 Classification Models
 
-PhantomSpell uses machine learning to detect P300 event-related potentials (ERPs) in EEG signals and classify which row/column the user is attending to.
+### LDA Baseline (implemented)
 
-### TensorFlow.js Classifiers
+The default classifier is **Fisher's Linear Discriminant Analysis**:
+- Trains on labeled epochs collected during calibration
+- Regularized pooled covariance (Ledoit-Wolf shrinkage)
+- Leave-one-out or 10-fold cross-validation for accuracy estimation
+- Persists trained weights to localStorage
+- Typical accuracy: 70-85% with 8-channel EEG after ~5 min calibration
 
-| Model | Architecture | Description |
-|-------|--------------|-------------|
-| **Linear Classifier** | Dense(N×600 → 2) | Simple logistic regression on epoched EEG. Fast baseline. |
-| **CNN-ERP** | Conv1D(3 layers) → Dense → Sigmoid | Convolutional classifier for temporal ERP patterns. |
-| **LSTM-P300** | LSTM(64) → Dense(32) → Dense(2) | Recurrent model captures P300 waveform dynamics. |
-| **EEGNet** | Depthwise Conv2D → Separable Conv2D | Compact architecture designed for ERP classification. |
-| **Attention-ERP** | Multi-head Attention → Dense | Learns channel importance and temporal features. |
+### TensorFlow.js Classifiers (model definitions ready, training integration in progress)
 
-**Input:** Epoched EEG data (typically 0-800ms post-flash, all channels)  
+| Model | Architecture | Status |
+|-------|--------------|--------|
+| **Linear Classifier** | Dense(N×epoch → 2) | Defined, training WIP |
+| **CNN-ERP** | Conv1D(3 layers) → Dense → Sigmoid | Defined, training WIP |
+| **LSTM-P300** | LSTM(64) → Dense(32) → Dense(2) | Defined, training WIP |
+| **EEGNet** | Depthwise Conv2D → Separable Conv2D | Defined, training WIP |
+| **Attention-ERP** | Multi-head Attention → Dense | Defined, training WIP |
+
+**Input:** Epoched EEG data ([-200ms, +800ms] post-flash, all channels)
 **Output:** Binary classification (target vs. non-target) with confidence score
 
 ### Training & Calibration
 
-1. **Copy-Spelling Task** – User focuses on displayed characters while system collects labeled EEG data
-2. **Data Augmentation** – Synthetic noise injection and temporal jittering to improve robustness
-3. **Online Learning** – Models can update incrementally during use to adapt to signal drift
+1. **Copy-Spelling Task** – User focuses on displayed characters while system collects labeled EEG epochs
+2. **LDA Training** – Trained in-browser from collected epochs with cross-validated accuracy report
 
-> All models support **dynamic channel counts** and auto-adapt to your EEG device (4-64 channels).
+> TFJS model training from in-browser calibration data is planned but not yet wired end-to-end. The LDA classifier is the current working path.
 
 ---
 
@@ -474,13 +440,6 @@ vercel --prod
 - Build command: `npm run build`
 - Publish directory: `dist`
 
-### Deploy to Cloudflare Pages
-
-```bash
-npm run build
-npx wrangler pages deploy dist
-```
-
 ---
 
 ## 🏗 Tech Stack
@@ -493,6 +452,7 @@ npx wrangler pages deploy dist
 | **Styling** | Tailwind CSS |
 | **Animations** | Framer Motion |
 | **ML Runtime** | TensorFlow.js (WebGPU/WebGL) |
+| **Classification** | LDA (Fisher) baseline + TFJS models |
 | **Code Editor** | Monaco Editor |
 | **Protocol** | MessagePack (binary) |
 | **Testing** | Vitest + Cypress |
@@ -502,15 +462,15 @@ npx wrangler pages deploy dist
 | Metric | Target | Notes |
 |--------|--------|-------|
 | **EEG Sample Rate** | 250+ Hz | Minimum for P300 detection |
-| **Flash Rate** | 125ms flash + 75ms ISI | Standard P300 timing |
-| **Classification Latency** | <100ms | TensorFlow.js inference time |
+| **Flash Rate** | 125ms flash + 75ms ISI | Standard P300 timing (via rAF) |
+| **Classification Latency** | <100ms | LDA: <5ms, TFJS: <100ms |
 | **ITR (Bits/Min)** | 15-40 | Information Transfer Rate depends on accuracy |
 | **Selection Time** | 10-15s | Per character (including multiple trial cycles) |
 
-- **Event-locked epoching** for precise stimulus alignment
-- **Web Worker classification** for non-blocking computation
-- **Adaptive trial count** based on classification confidence
-- **Real-time signal quality monitoring** with electrode impedance feedback
+- **`requestAnimationFrame`-driven flashing** for frame-accurate stimulus timing
+- **Frame timestamp markers** aligned to EEG stream clock for precise epoching
+- **Circular EEG buffer** for efficient epoch extraction without memory allocation
+- **Web Worker classification** for non-blocking TFJS inference
 
 ---
 
@@ -523,54 +483,3 @@ Create `.env.local`:
 ```bash
 VITE_WEBSOCKET_URL=ws://localhost:8766  # Default WebSocket bridge URL
 VITE_GROQ_API_KEY=your_groq_api_key     # Optional: for AI code generation
-```
-
-### Constants
-
-Edit [src/utils/constants.ts](src/utils/constants.ts):
-
-```typescript
-// P300 Speller Timing
-export const P300_TIMING = {
-  FLASH_DURATION_MS: 125,
-  INTER_FLASH_INTERVAL_MS: 75,
-  TRIAL_COUNT: 10,
-  POST_SELECTION_PAUSE_MS: 1500,
-};
-
-// Color scheme
-export const COLORS = {
-  FLASH_ACTIVE: '#FFFF00',    // Yellow - Active flash
-  FLASH_TARGET: '#00FF00',    // Green - Target (calibration)
-  SELECTED_CHAR: '#00AAFF',   // Blue - Selected character
-  GRID_DEFAULT: '#333333',    // Dark gray - Grid background
-};
-
-// Performance thresholds
-export const PERFORMANCE_THRESHOLDS = {
-  MIN_CLASSIFICATION_CONFIDENCE: 0.6,
-  MIN_ITR_BITS_PER_MIN: 10,
-  MAX_CLASSIFICATION_LATENCY_MS: 100,
-};
-```
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgments
-
-This project was developed with assistance from AI coding assistants:
-- Claude Opus 4.5 & Sonnet 4.5 (Anthropic)
-- Grok code fast 1 (xAI)
-- Gemini 3.0 Pro (Google)
-
----
-
-<div align="center">
-
-
-</div>
-

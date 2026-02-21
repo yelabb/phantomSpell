@@ -1,6 +1,7 @@
 // Baseline P300 classifiers for testing and development
 
 import type { Decoder } from '../types/decoders';
+import { ldaDecoder } from './ldaClassifier';
 
 /**
  * Random Classifier
@@ -116,6 +117,7 @@ export const majorityVoteClassifier: Decoder = {
 
 // Export all baseline classifiers
 export const baselineDecoders: Decoder[] = [
+  ldaDecoder,         // LDA (real classifier, requires calibration)
   randomClassifier,
   templateMatchingClassifier,
   majorityVoteClassifier,

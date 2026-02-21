@@ -3,7 +3,8 @@
 import { memo, useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import SpellerGrid from './visualization/SpellerGrid';
-import type { SpellerMode } from './visualization/SpellerGrid';
+import type { SpellerMode, FlashEvent } from './visualization/SpellerGrid';
+import { CHARACTER_MATRIX } from './visualization/SpellerGrid';
 import TextOutputPanel from './TextOutputPanel';
 import P300CalibrationPanel from './P300CalibrationPanel';
 import { ConnectionStatus } from './ConnectionStatus';
@@ -11,6 +12,7 @@ import { DecoderSelector } from './DecoderSelector';
 import { ElectrodePlacementPanel } from './visualization/ElectrodePlacementPanel';
 import { useStore } from '../store';
 import { getSmartPredictions, addCustomWord } from '../utils/wordPrediction';
+import { useP300Pipeline } from '../hooks/useP300Pipeline';
 
 const SpellerDashboard = memo(function SpellerDashboard() {
   // Store state
@@ -19,10 +21,19 @@ const SpellerDashboard = memo(function SpellerDashboard() {
   const p300Output = useStore((state) => state.p300Output);
   const dataSource = useStore((state) => state.dataSource);
 
+  // P300 pipeline
+  const {
+    recordFlashMarker,
+    processCompletedTrial,
+    trainModel,
+    isModelReady,
+    modelAccuracy,
+  } = useP300Pipeline({ enabled: isConnected });
+
   // Local state
   const [mode, setMode] = useState<'calibration' | 'spelling'>('calibration');
   const [spellerMode, setSpellerMode] = useState<SpellerMode>('idle');
-  const [targetChar] = useState<string | null>(null);
+  const targetChar: string | null = null; // Set dynamically for spelling mode if needed
   const [spelledText, setSpelledText] = useState('');
   const [wordPredictions, setWordPredictions] = useState<string[]>([]);
   const [showMetrics, setShowMetrics] = useState(true);
@@ -94,9 +105,43 @@ const SpellerDashboard = memo(function SpellerDashboard() {
   // Handle calibration complete
   const handleCalibrationComplete = useCallback((accuracy: number) => {
     console.log(`[PhantomSpell] Calibration complete with ${(accuracy * 100).toFixed(1)}% accuracy`);
-    setMode('spelling');
-    setSpellerMode('free-spelling');
+    if (accuracy > 0.5) {
+      setMode('spelling');
+      setSpellerMode('free-spelling');
+    }
   }, []);
+
+  // Handle flash marker from SpellerGrid (rAF frame timestamp)
+  const handleFlashMarker = useCallback((event: FlashEvent, frameTimestamp: number) => {
+    recordFlashMarker(event, frameTimestamp);
+  }, [recordFlashMarker]);
+
+  // Handle calibration trial completion (from CalibrationPanel's embedded SpellerGrid)
+  const handleCalibTrialComplete = useCallback((
+    flashEvents: FlashEvent[],
+    targetPosition?: { row: number; col: number },
+  ) => {
+    processCompletedTrial(flashEvents, targetPosition, true /* isCalibration */);
+  }, [processCompletedTrial]);
+
+  // Handle trial completion (all flash cycles done for one character)
+  const handleTrialComplete = useCallback((flashEvents: FlashEvent[]) => {
+    const isCalibration = mode === 'calibration' && spellerMode === 'calibration';
+    
+    // Find target position for calibration
+    let targetPos: { row: number; col: number } | undefined;
+    if (isCalibration && targetChar) {
+      for (let r = 0; r < 6; r++) {
+        for (let c = 0; c < 6; c++) {
+          if (CHARACTER_MATRIX[r][c] === targetChar) {
+            targetPos = { row: r, col: c };
+          }
+        }
+      }
+    }
+    
+    processCompletedTrial(flashEvents, targetPos, isCalibration);
+  }, [mode, spellerMode, targetChar, processCompletedTrial]);
 
   // Start/stop spelling
   const toggleSpelling = () => {
@@ -272,8 +317,15 @@ const SpellerDashboard = memo(function SpellerDashboard() {
           {mode === 'calibration' ? (
             <P300CalibrationPanel
               onCalibrationComplete={handleCalibrationComplete}
-              onStartCalibration={() => setSpellerMode('calibration')}
-              onStopCalibration={() => setSpellerMode('idle')}
+              onTrainModel={trainModel}
+              isModelReady={isModelReady}
+              modelAccuracy={modelAccuracy}
+              onFlashMarker={handleFlashMarker}
+              onTrialComplete={handleCalibTrialComplete}
+              onSwitchToSpelling={() => {
+                setMode('spelling');
+                setSpellerMode('free-spelling');
+              }}
             />
           ) : (
             <div className="flex-1 flex flex-col">
@@ -283,6 +335,8 @@ const SpellerDashboard = memo(function SpellerDashboard() {
                   mode={spellerMode}
                   targetChar={targetChar}
                   onCharacterSelected={handleCharacterSelected}
+                  onTrialComplete={handleTrialComplete}
+                  onFlashMarker={handleFlashMarker}
                 />
               </div>
 

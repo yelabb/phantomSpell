@@ -1,7 +1,8 @@
 // SpellerGrid.tsx - P300 Matrix Speller Component
 // 6x6 character grid with row/column flashing paradigm
+// Uses requestAnimationFrame for frame-accurate stimulus timing.
 
-import { memo, useState, useEffect, useCallback, useMemo } from 'react';
+import { memo, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../store';
 
 // Grid configuration
@@ -9,7 +10,7 @@ const GRID_ROWS = 6;
 const GRID_COLS = 6;
 
 // Character matrix (A-Z + 0-9)
-const CHARACTER_MATRIX: string[][] = [
+export const CHARACTER_MATRIX: string[][] = [
   ['A', 'B', 'C', 'D', 'E', 'F'],
   ['G', 'H', 'I', 'J', 'K', 'L'],
   ['M', 'N', 'O', 'P', 'Q', 'R'],
@@ -18,12 +19,10 @@ const CHARACTER_MATRIX: string[][] = [
   ['5', '6', '7', '8', '9', '0'],
 ];
 
-// Special characters (for future expansion)
-// const SPECIAL_CHARS = ['_', '<', '>', '.', '?', '!'];
-
 // P300 timing configuration (all in ms)
 const FLASH_DURATION = 125;        // How long each flash lasts
 const INTER_FLASH_INTERVAL = 75;   // Gap between flashes
+const FLASH_CYCLE_MS = FLASH_DURATION + INTER_FLASH_INTERVAL; // Total cycle
 const TRIAL_COUNT = 10;             // Number of complete cycles per selection
 const POST_SELECTION_PAUSE = 1500;  // Pause after character selection
 
@@ -40,13 +39,15 @@ interface SpellerGridProps {
   targetChar?: string | null;       // For calibration mode
   onCharacterSelected?: (char: string, confidence: number) => void;
   onTrialComplete?: (flashSequence: FlashEvent[]) => void;
+  /** Callback to record each flash marker with actual frame timestamp */
+  onFlashMarker?: (event: FlashEvent, frameTimestamp: number) => void;
 }
 
 export interface FlashEvent {
   type: 'row' | 'col';
   index: number;
-  timestamp: number;
-  containsTarget: boolean; // For training labels
+  timestamp: number;         // Actual rAF frame timestamp (not performance.now())
+  containsTarget: boolean;   // For training labels
 }
 
 const SpellerGrid = memo(function SpellerGrid({
@@ -54,6 +55,7 @@ const SpellerGrid = memo(function SpellerGrid({
   targetChar = null,
   onCharacterSelected,
   onTrialComplete,
+  onFlashMarker,
 }: SpellerGridProps) {
   // Flash state
   const [flashState, setFlashState] = useState<FlashState>({ type: 'none', index: -1 });
@@ -63,6 +65,18 @@ const SpellerGrid = memo(function SpellerGrid({
   // Selection state (from decoder output)
   const decoderOutput = useStore((state) => state.p300Output);
   const [selectedChar, setSelectedChar] = useState<{char: string, confidence: number} | null>(null);
+
+  // Refs for rAF-based flash scheduling
+  const rafIdRef = useRef<number>(0);
+  const flashStateRef = useRef<{
+    trialNum: number;
+    flashIndex: number;
+    sequence: Array<{ type: 'row' | 'col'; index: number }>;
+    events: FlashEvent[];
+    flashOnTime: number;     // rAF timestamp when flash was turned on
+    isFlashOn: boolean;
+    waitingForFlashOff: boolean;
+  } | null>(null);
 
   // Find target position for calibration
   const targetPosition = useMemo(() => {
@@ -77,12 +91,11 @@ const SpellerGrid = memo(function SpellerGrid({
     return null;
   }, [targetChar]);
 
-  // Generate random flash sequence (Marsaglia algorithm for balanced sequence)
+  // Generate random flash sequence (Fisher-Yates for balanced sequence)
   const generateFlashSequence = useCallback(() => {
     const rows = Array.from({ length: GRID_ROWS }, (_, i) => ({ type: 'row' as const, index: i }));
     const cols = Array.from({ length: GRID_COLS }, (_, i) => ({ type: 'col' as const, index: i }));
     
-    // Interleave rows and columns randomly
     const all = [...rows, ...cols];
     for (let i = all.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -92,72 +105,128 @@ const SpellerGrid = memo(function SpellerGrid({
     return all;
   }, []);
 
-  // Start P300 trial sequence
+  // requestAnimationFrame-based flash loop
+  const rafLoop = useCallback((frameTimestamp: number) => {
+    const state = flashStateRef.current;
+    if (!state) return;
+
+    // Check if all trials complete
+    if (state.trialNum >= TRIAL_COUNT) {
+      setFlashState({ type: 'none', index: -1 });
+      setIsRunning(false);
+      flashStateRef.current = null;
+
+      if (onTrialComplete) {
+        onTrialComplete(state.events);
+      }
+      return;
+    }
+
+    if (state.isFlashOn) {
+      // Check if flash duration has elapsed
+      const elapsed = frameTimestamp - state.flashOnTime;
+      if (elapsed >= FLASH_DURATION) {
+        // Turn flash off
+        setFlashState({ type: 'none', index: -1 });
+        state.isFlashOn = false;
+        state.waitingForFlashOff = true;
+        state.flashOnTime = frameTimestamp; // reuse for ISI timing
+      }
+    } else if (state.waitingForFlashOff) {
+      // Wait for inter-flash interval
+      const elapsed = frameTimestamp - state.flashOnTime;
+      if (elapsed >= INTER_FLASH_INTERVAL) {
+        state.waitingForFlashOff = false;
+        
+        // Advance to next flash
+        state.flashIndex++;
+        if (state.flashIndex >= state.sequence.length) {
+          state.flashIndex = 0;
+          state.trialNum++;
+          setCurrentTrial(state.trialNum);
+          state.sequence = generateFlashSequence();
+        }
+
+        // If we haven't exceeded trial count, show next flash
+        if (state.trialNum < TRIAL_COUNT) {
+          showNextFlash(state, frameTimestamp);
+        }
+      }
+    } else {
+      // Initial flash (first frame)
+      showNextFlash(state, frameTimestamp);
+    }
+
+    rafIdRef.current = requestAnimationFrame(rafLoop);
+  }, [generateFlashSequence, onTrialComplete]);
+
+  // Show the next flash in the sequence
+  const showNextFlash = useCallback((
+    state: NonNullable<typeof flashStateRef.current>,
+    frameTimestamp: number
+  ) => {
+    const currentFlash = state.sequence[state.flashIndex];
+    
+    setFlashState({
+      type: currentFlash.type,
+      index: currentFlash.index,
+    });
+
+    // Determine if this flash contains the target
+    const containsTarget = targetPosition
+      ? (currentFlash.type === 'row' && currentFlash.index === targetPosition.row) ||
+        (currentFlash.type === 'col' && currentFlash.index === targetPosition.col)
+      : false;
+
+    // Record event with ACTUAL frame timestamp (not performance.now())
+    const event: FlashEvent = {
+      type: currentFlash.type,
+      index: currentFlash.index,
+      timestamp: frameTimestamp,
+      containsTarget,
+    };
+    state.events.push(event);
+
+    // Notify marker callback with frame-accurate timestamp
+    if (onFlashMarker) {
+      onFlashMarker(event, frameTimestamp);
+    }
+
+    state.isFlashOn = true;
+    state.flashOnTime = frameTimestamp;
+  }, [targetPosition, onFlashMarker]);
+
+  // Start P300 trial sequence (using rAF)
   const startTrial = useCallback(() => {
     if (mode === 'idle') return;
     
+    // Cancel any existing animation
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+
     setIsRunning(true);
     setCurrentTrial(0);
     setSelectedChar(null);
 
-    let trialNum = 0;
-    let flashIndex = 0;
-    let sequence = generateFlashSequence();
-    const events: FlashEvent[] = [];
+    flashStateRef.current = {
+      trialNum: 0,
+      flashIndex: 0,
+      sequence: generateFlashSequence(),
+      events: [],
+      flashOnTime: 0,
+      isFlashOn: false,
+      waitingForFlashOff: false,
+    };
 
-    const flashTimer = setInterval(() => {
-      if (trialNum >= TRIAL_COUNT) {
-        // End of all trials
-        clearInterval(flashTimer);
-        setFlashState({ type: 'none', index: -1 });
-        setIsRunning(false);
-        
-        // Trigger analysis (decoder processes flash events)
-        if (onTrialComplete) {
-          onTrialComplete(events);
-        }
-        
-        return;
-      }
+    // Kick off rAF loop
+    rafIdRef.current = requestAnimationFrame(rafLoop);
 
-      // Flash on
-      const currentFlash = sequence[flashIndex];
-      setFlashState({
-        type: currentFlash.type,
-        index: currentFlash.index,
-      });
-
-      // Record event with label for training
-      const containsTarget = targetPosition
-        ? (currentFlash.type === 'row' && currentFlash.index === targetPosition.row) ||
-          (currentFlash.type === 'col' && currentFlash.index === targetPosition.col)
-        : false;
-
-      events.push({
-        type: currentFlash.type,
-        index: currentFlash.index,
-        timestamp: performance.now(),
-        containsTarget,
-      });
-
-      // Schedule flash off
-      setTimeout(() => {
-        setFlashState({ type: 'none', index: -1 });
-      }, FLASH_DURATION);
-
-      flashIndex++;
-      
-      // Check if we've completed one full cycle
-      if (flashIndex >= sequence.length) {
-        flashIndex = 0;
-        trialNum++;
-        setCurrentTrial(trialNum);
-        sequence = generateFlashSequence(); // Re-randomize for next trial
-      }
-    }, FLASH_DURATION + INTER_FLASH_INTERVAL);
-
-    return () => clearInterval(flashTimer);
-  }, [mode, targetPosition, generateFlashSequence, onTrialComplete]);
+    return () => {
+      cancelAnimationFrame(rafIdRef.current);
+      flashStateRef.current = null;
+    };
+  }, [mode, generateFlashSequence, rafLoop]);
 
   // Monitor decoder output and determine selected character
   useEffect(() => {
@@ -187,6 +256,13 @@ const SpellerGrid = memo(function SpellerGrid({
       const timer = setTimeout(() => startTrial(), 500); // Small delay before starting
       return () => clearTimeout(timer);
     }
+    // Cleanup rAF on unmount or mode change to idle
+    return () => {
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        flashStateRef.current = null;
+      }
+    };
   }, [mode, isRunning, startTrial]);
 
   // Render character cell
