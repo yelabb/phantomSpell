@@ -11,7 +11,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   MarkerManager,
   EEGRingBuffer,
-  DEFAULT_P300_CONFIG,
   baselineCorrect,
   commonAverageReference,
   bandpassFilter,
@@ -343,7 +342,7 @@ describe('extractEpoch', () => {
       filterHighcut: 30,
       spatialFiltering: 'none',
     };
-    const preSamples = Math.round((200 / 1000) * 250); // 50
+    // preSamples = Math.round((200 / 1000) * 250) = 50
     const totalSamples = Math.round(((200 + 800) / 1000) * 250); // 250
 
     const buf = new EEGRingBuffer(2, 5, 250); // 5 sec buffer

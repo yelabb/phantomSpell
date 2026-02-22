@@ -11,7 +11,7 @@
 import * as tf from '@tensorflow/tfjs';
 import type { DecoderInput, P300Output } from '../types/decoders';
 import type { FlashEvent } from '../components/visualization/SpellerGrid';
-import { getModel, DEFAULT_EPOCH_SAMPLES, DEFAULT_CHANNELS, DEFAULT_FEATURE_DIM } from './tfjsModels';
+import { getModel } from './tfjsModels';
 import { extractFeatures } from '../utils/p300Pipeline';
 
 // ============================================================================

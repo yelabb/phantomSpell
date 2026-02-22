@@ -15,7 +15,6 @@ import {
   extractFeatures,
   extractP300Features,
   aggregateFlashScores,
-  type DEFAULT_P300_CONFIG,
 } from '../utils/p300Pipeline';
 import type { FlashEvent } from '../components/visualization/SpellerGrid';
 import type { P300Output, P300TrainingData, P300ModelConfig, Decoder } from '../types/decoders';

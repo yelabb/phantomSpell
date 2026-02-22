@@ -22,7 +22,7 @@ export const CHARACTER_MATRIX: string[][] = [
 // P300 timing configuration (all in ms)
 const FLASH_DURATION = 125;        // How long each flash lasts
 const INTER_FLASH_INTERVAL = 75;   // Gap between flashes
-const FLASH_CYCLE_MS = FLASH_DURATION + INTER_FLASH_INTERVAL; // Total cycle
+// FLASH_CYCLE_MS = FLASH_DURATION + INTER_FLASH_INTERVAL (200ms total cycle)
 const TRIAL_COUNT = 10;             // Number of complete cycles per selection
 const POST_SELECTION_PAUSE = 1500;  // Pause after character selection
 

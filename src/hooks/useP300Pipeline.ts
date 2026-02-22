@@ -16,7 +16,6 @@ import { useStore } from '../store';
 import {
   MarkerManager,
   EEGRingBuffer,
-  extractEpoch,
   epochsToTrainingData,
   DEFAULT_P300_CONFIG,
 } from '../utils/p300Pipeline';
@@ -65,7 +64,7 @@ export function useP300Pipeline(options: UseP300PipelineOptions = {}) {
   // Update config when stream metadata changes
   useEffect(() => {
     if (activeStreamConfig) {
-      const newRate = activeStreamConfig.sampleRate || config.sampleRate;
+      const newRate = activeStreamConfig.samplingRate || config.sampleRate;
       const newChannels = activeStreamConfig.channelCount || config.channels;
 
       if (newRate !== config.sampleRate || newChannels !== config.channels) {
@@ -110,7 +109,7 @@ export function useP300Pipeline(options: UseP300PipelineOptions = {}) {
    * @param isCalibration - Whether this is calibration mode (collect training data)
    */
   const processCompletedTrial = useCallback(async (
-    flashEvents: FlashEvent[],
+    _flashEvents: FlashEvent[],
     targetPosition?: { row: number; col: number },
     isCalibration: boolean = false
   ) => {
@@ -123,7 +122,7 @@ export function useP300Pipeline(options: UseP300PipelineOptions = {}) {
       const effectiveConfig = {
         ...config,
         channels: buffer.channels,
-        sampleRate: activeStreamConfig?.sampleRate || config.sampleRate,
+        sampleRate: activeStreamConfig?.samplingRate || config.sampleRate,
       };
 
       // Extract epochs for all flash events
@@ -217,7 +216,7 @@ export function useP300Pipeline(options: UseP300PipelineOptions = {}) {
       const effectiveConfig = {
         ...config,
         channels: activeStreamConfig?.channelCount || config.channels,
-        sampleRate: activeStreamConfig?.sampleRate || config.sampleRate,
+        sampleRate: activeStreamConfig?.samplingRate || config.sampleRate,
       };
 
       const model = trainLDA(p300TrainingData, effectiveConfig, 'downsample');
